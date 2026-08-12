@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plot — landscape site planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0E151C;      /* app background */
+  --panel:#151E27;    /* chrome */
+  --panel-2:#1C2732;  /* raised */
+  --line:#2A3743;
+  --line-soft:#212C37;
+  --txt:#E7EDF3;
+  --dim:#8798A8;
+  --dimmer:#5D6E7D;
+  --mark:#FF2E88;     /* surveyor's marking pink — the one loud colour */
+  --sage:#8FB183;
+  --paper:#E6E7DF;    /* the drawing field */
+  --rule:#B9BCB0;
+  --r:3px;
+  --ui:'Barlow Semi Condensed',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--ink);color:var(--txt);font-family:var(--ui);
+  font-size:14px;-webkit-font-smoothing:antialiased;
+  display:grid;grid-template-rows:44px 1fr 26px;grid-template-columns:52px 1fr 268px;
+  grid-template-areas:"top top top" "rail stage insp" "status status status";
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--mark);outline-offset:1px}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ── top bar ───────────────────────────────────────────── */
+#top{grid-area:top;display:flex;align-items:center;gap:6px;padding:0 10px;
+  background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden}
+#top>*{flex:none}
+#top .spacer{flex:1 1 auto}
+#btnInsp{display:none}
+.brand{font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--mark);padding-right:4px}
+#projName{font-weight:600;font-size:16px;letter-spacing:.01em;background:none;border:1px solid transparent;
+  border-radius:var(--r);padding:3px 7px;min-width:90px;max-width:230px}
+#projName:hover{border-color:var(--line)}
+#projName:focus{border-color:var(--mark);background:var(--ink);outline:none}
+.sep{width:1px;height:20px;background:var(--line);margin:0 4px}
+.tb{display:flex;align-items:center;gap:5px;height:27px;padding:0 9px;border-radius:var(--r);
+  color:var(--dim);border:1px solid transparent;white-space:nowrap}
+.tb:hover{background:var(--panel-2);color:var(--txt)}
+.tb[disabled]{opacity:.32;pointer-events:none}
+.tb.key{border-color:var(--line);color:var(--txt)}
+.spacer{flex:1}
+.zoomgrp{display:flex;align-items:center;background:var(--ink);border:1px solid var(--line);border-radius:var(--r)}
+.zoomgrp button{width:26px;height:25px;color:var(--dim)}
+.zoomgrp button:hover{color:var(--txt)}
+#zoomVal{font-family:var(--mono);font-size:11px;width:46px;text-align:center;color:var(--dim)}
+
+/* ── tool rail ─────────────────────────────────────────── */
+#rail{grid-area:rail;background:var(--panel);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:3px;overflow-y:auto}
+.tool{width:38px;height:38px;border-radius:var(--r);display:grid;place-items:center;
+  color:var(--dim);position:relative;border:1px solid transparent}
+.tool svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+.tool:hover{background:var(--panel-2);color:var(--txt)}
+.tool.on{background:var(--mark);color:#fff;border-color:var(--mark)}
+.tool .kbd{position:absolute;right:3px;bottom:1px;font-family:var(--mono);font-size:8px;opacity:.5}
+.railgap{height:9px;width:22px;border-bottom:1px solid var(--line);margin-bottom:8px}
+
+/* ── stage ─────────────────────────────────────────────── */
+#stage{grid-area:stage;position:relative;background:var(--ink);overflow:hidden}
+#rulerT{position:absolute;top:0;left:24px;right:0;height:22px;z-index:6;pointer-events:none}
+#rulerL{position:absolute;top:22px;left:0;bottom:0;width:24px;z-index:6;pointer-events:none}
+#corner{position:absolute;top:0;left:0;width:24px;height:22px;z-index:7;background:var(--panel);
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+#field{position:absolute;top:22px;left:24px;right:0;bottom:0;overflow:hidden}
+#gridcv{position:absolute;inset:0;z-index:0}
+#field .canvas-container{position:absolute!important;top:0;left:0;z-index:1}
+#hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:8;
+  background:rgba(14,21,28,.93);border:1px solid var(--line);border-radius:var(--r);
+  padding:6px 13px;font-size:13px;color:var(--txt);pointer-events:none;
+  display:none;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+#hint b{color:var(--mark);font-family:var(--mono);font-size:11px;font-weight:600}
+
+/* ── inspector ─────────────────────────────────────────── */
+#insp{grid-area:insp;background:var(--panel);border-left:1px solid var(--line);
+  overflow-y:auto;display:flex;flex-direction:column}
+.sect{border-bottom:1px solid var(--line-soft);padding:11px 13px}
+.sect h3{font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--dimmer);margin-bottom:9px}
+.row{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.row:last-child{margin-bottom:0}
+.row label{font-size:13px;color:var(--dim);flex:1;min-width:0}
+.fld{background:var(--ink);border:1px solid var(--line);border-radius:var(--r);
+  padding:4px 7px;font-family:var(--mono);font-size:11.5px;width:74px;text-align:right}
+.fld:focus{border-color:var(--mark);outline:none}
+select.fld{text-align:left;width:112px;cursor:pointer}
+input[type=color]{width:30px;height:24px;padding:1px;background:var(--ink);
+  border:1px solid var(--line);border-radius:var(--r);cursor:pointer}
+input[type=range]{flex:2;accent-color:var(--mark);min-width:0}
+.btn{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r);
+  padding:6px 9px;font-size:13px;color:var(--txt);flex:1;white-space:nowrap}
+.btn:hover{border-color:var(--dimmer);background:#232F3B}
+.btn.on{background:var(--mark);border-color:var(--mark);color:#fff}
+.btn.warn:hover{border-color:var(--mark);color:var(--mark)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.sw{aspect-ratio:1;border-radius:var(--r);border:1px solid var(--line);position:relative;
+  overflow:hidden;background-size:cover}
+.sw.on{border-color:var(--mark);box-shadow:0 0 0 1px var(--mark)}
+.sw span{position:absolute;left:0;right:0;bottom:0;font-size:8.5px;text-align:center;
+  background:rgba(14,21,28,.72);color:#fff;padding:1px 0;letter-spacing:.02em}
+.readout{font-family:var(--mono);font-size:11.5px;color:var(--sage);
+  display:flex;justify-content:space-between;padding:2px 0}
+.readout b{color:var(--txt);font-weight:500}
+.empty{padding:34px 20px;text-align:center;color:var(--dimmer);font-size:13px;line-height:1.55}
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--mark);
+  border:1px solid var(--mark);border-radius:20px;padding:2px 9px}
+.locked{color:var(--dim);border-color:var(--line)}
+
+/* ── status ────────────────────────────────────────────── */
+#status{grid-area:status;background:var(--panel);border-top:1px solid var(--line);
+  display:flex;align-items:center;gap:0;padding:0 10px;font-family:var(--mono);
+  font-size:10.5px;color:var(--dimmer)}
+#status .cell{padding:0 11px;border-right:1px solid var(--line-soft);white-space:nowrap}
+#status .cell:first-child{padding-left:0}
+#status .cell b{color:var(--txt);font-weight:500}
+#status .cell.hot b{color:var(--mark)}
+#status .spacer{flex:1;border:none}
+
+/* ── modals ────────────────────────────────────────────── */
+.veil{position:fixed;inset:0;background:rgba(8,12,16,.8);z-index:50;
+  display:none;place-items:center;padding:20px}
+.veil.show{display:grid}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:5px;
+  width:100%;max-width:480px;max-height:82vh;display:flex;flex-direction:column;
+  box-shadow:0 22px 60px rgba(0,0,0,.6)}
+.modal header{padding:15px 18px;border-bottom:1px solid var(--line);
+  display:flex;align-items:baseline;gap:9px}
+.modal header h2{font-size:18px;font-weight:600}
+.modal header .sub{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--dimmer)}
+.modal .body{padding:16px 18px;overflow-y:auto}
+.modal footer{padding:13px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.modal .btn{flex:none;padding:7px 15px}
+.wide{max-width:560px}
+.pline{display:flex;align-items:center;gap:11px;padding:9px 11px;border:1px solid var(--line);
+  border-radius:var(--r);margin-bottom:7px;cursor:pointer}
+.pline:hover{border-color:var(--dimmer);background:var(--panel-2)}
+.pline.on{border-color:var(--mark)}
+.pline .nm{flex:1;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pline .mt{font-family:var(--mono);font-size:10px;color:var(--dimmer);white-space:nowrap}
+.pline .x{color:var(--dimmer);padding:2px 5px;border-radius:var(--r)}
+.pline .x:hover{color:var(--mark)}
+.field{margin-bottom:13px}
+.field label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dimmer);margin-bottom:5px}
+.field input{width:100%;background:var(--ink);border:1px solid var(--line);
+  border-radius:var(--r);padding:8px 10px}
+.field input:focus{border-color:var(--mark);outline:none}
+.field .hint{font-size:12px;color:var(--dimmer);margin-top:4px}
+kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px solid var(--line);
+  border-bottom-width:2px;border-radius:3px;padding:1px 5px;color:var(--txt)}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:7px 13px;align-items:center;font-size:13px}
+.keys .k{text-align:right}
+.keys .g{grid-column:1/-1;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dimmer);margin-top:9px}
+.keys .g:first-child{margin-top:0}
+#toast{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:60;
+  background:var(--panel-2);border:1px solid var(--line);border-left:2px solid var(--mark);
+  border-radius:var(--r);padding:9px 15px;font-size:13px;opacity:0;pointer-events:none;
+  transition:opacity .18s,transform .18s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(-5px)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:820px){
+  body{grid-template-columns:44px 1fr 0}
+  #insp{position:fixed;right:0;top:44px;bottom:26px;width:264px;z-index:20;
+    transform:translateX(100%);transition:transform .2s}
+  #insp.open{transform:none}
+  #btnInsp{display:flex}
+}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <span class="brand">Plot</span>
+  <input id="projName" value="Untitled plot" spellcheck="false" aria-label="Project name">
+  <button class="tb" id="btnProjects" title="All projects">Projects</button>
+  <span class="sep"></span>
+  <button class="tb" id="btnUndo" title="Undo (Ctrl+Z)">Undo</button>
+  <button class="tb" id="btnRedo" title="Redo (Ctrl+Shift+Z)">Redo</button>
+  <span class="sep"></span>
+  <button class="tb" id="btnSize" title="Change plot dimensions">Dimensions</button>
+  <button class="tb" id="btnSnap" title="Snap to grid (G)">Snap on</button>
+  <button class="tb" id="btnGridToggle" title="Show grid">Grid on</button>
+  <span class="spacer"></span>
+  <button class="tb" id="btnExport">Export</button>
+  <button class="tb" id="btnImport">Import</button>
+  <button class="tb" id="btnPng">PNG</button>
+  <span class="sep"></span>
+  <div class="zoomgrp">
+    <button id="zOut" title="Zoom out">&minus;</button>
+    <span id="zoomVal">100%</span>
+    <button id="zIn" title="Zoom in">+</button>
+  </div>
+  <button class="tb" id="btnFit" title="Fit plot to view (F)">Fit</button>
+  <button class="tb" id="btnInsp" title="Show properties">Properties</button>
+  <button class="tb" id="btnHelp" title="Keyboard shortcuts">?</button>
+  <input type="file" id="fileIn" accept="application/json,.json" hidden>
+</div>
+
+<nav id="rail" aria-label="Tools">
+  <button class="tool on" data-tool="select" title="Select and move — V">
+    <svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 1.6L10.5 19z"/></svg><span class="kbd">V</span></button>
+  <button class="tool" data-tool="pan" title="Pan the view — H (or hold Space)">
+    <svg viewBox="0 0 24 24"><path d="M9 11V5a1.5 1.5 0 013 0v6m0-1V4a1.5 1.5 0 013 0v7m0-2a1.5 1.5 0 013 0v6a6 6 0 01-6 6h-1.6a5 5 0 01-3.8-1.8L5 15.4a1.6 1.6 0 012.3-2.2L9 15V7a1.5 1.5 0 013 0"/></svg><span class="kbd">H</span></button>
+  <div class="railgap"></div>
+  <button class="tool" data-tool="rect" title="Rectangle — R">
+    <svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="1"/></svg><span class="kbd">R</span></button>
+  <button class="tool" data-tool="ellipse" title="Ellipse — O">
+    <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6.5"/></svg><span class="kbd">O</span></button>
+  <button class="tool" data-tool="tri" title="Triangle — Y">
+    <svg viewBox="0 0 24 24"><path d="M12 4.5L20.5 19h-17z"/></svg><span class="kbd">Y</span></button>
+  <button class="tool" data-tool="poly" title="Area — click each corner, Enter to close — P">
+    <svg viewBox="0 0 24 24"><path d="M4 9l6-5 10 4-2 11-11 1z"/><circle cx="4" cy="9" r="1.6" fill="currentColor"/><circle cx="20" cy="8" r="1.6" fill="currentColor"/></svg><span class="kbd">P</span></button>
+  <button class="tool" data-tool="path" title="Pathway — click each turn, Enter to finish — W">
+    <svg viewBox="0 0 24 24"><path d="M6 20c0-5 3-5 3-9S5 7 6 4"/><path d="M14 20c0-5 4-5 4-9s-4-4-3-7"/></svg><span class="kbd">W</span></button>
+  <div class="railgap"></div>
+  <button class="tool" data-tool="tree" title="Place a tree — T">
+    <svg viewBox="0 0 24 24"><path d="M12 15v5"/><path d="M12 3.5c3.6 0 6.5 2.7 6.5 6s-2.9 5.8-6.5 5.8S5.5 12.8 5.5 9.5s2.9-6 6.5-6z"/></svg><span class="kbd">T</span></button>
+  <button class="tool" data-tool="label" title="Label — X">
+    <svg viewBox="0 0 24 24"><path d="M5 7V5h14v2M12 5v14M9 19h6"/></svg><span class="kbd">X</span></button>
+  <button class="tool" data-tool="measure" title="Measure a distance — M">
+    <svg viewBox="0 0 24 24"><path d="M3 14.5L14.5 3l6.5 6.5L9.5 21z"/><path d="M7.5 10l2 2M10.5 7l2 2M13.5 4l2 2"/></svg><span class="kbd">M</span></button>
+</nav>
+
+<div id="stage">
+  <div id="corner"></div>
+  <canvas id="rulerT"></canvas>
+  <canvas id="rulerL"></canvas>
+  <div id="field">
+    <canvas id="gridcv"></canvas>
+    <canvas id="cv"></canvas>
+  </div>
+  <div id="hint"></div>
+</div>
+
+<aside id="insp" aria-label="Properties"></aside>
+
+<div id="status">
+  <div class="cell">Cursor <b id="stCur">—</b></div>
+  <div class="cell">Plot <b id="stPlot">—</b></div>
+  <div class="cell">Grid <b id="stGrid">—</b></div>
+  <div class="cell hot" id="stSelWrap" style="display:none">Selected <b id="stSel">—</b></div>
+  <div class="spacer"></div>
+  <div class="cell" id="stSaved">saved</div>
+</div>
+
+<div class="veil" id="mProjects"><div class="modal">
+  <header><h2>Projects</h2><span class="sub">stored in this browser</span></header>
+  <div class="body" id="projList"></div>
+  <footer>
+    <button class="btn" id="pDuplicate">Duplicate current</button>
+    <button class="btn" id="pNew">New project</button>
+    <button class="btn" data-close>Close</button>
+  </footer>
+</div></div>
+
+<div class="veil" id="mNew"><div class="modal">
+  <header><h2 id="nTitle">New project</h2><span class="sub" id="nSub">set the plot size</span></header>
+  <div class="body">
+    <div class="field"><label>Project name</label><input id="nName" value="Back garden" spellcheck="false"></div>
+    <div class="grid2">
+      <div class="field"><label>Width (feet)</label><input id="nW" type="number" min="4" max="4000" step="1" value="80"></div>
+      <div class="field"><label>Depth (feet)</label><input id="nH" type="number" min="4" max="4000" step="1" value="55"></div>
+    </div>
+    <div class="field"><label>Grid spacing (feet)</label><input id="nG" type="number" min="0.25" max="50" step="0.25" value="3">
+      <div class="hint">Lines are drawn at this spacing, with a heavier line every fifth one. Shapes snap to it unless you turn snapping off.</div></div>
+  </div>
+  <footer><button class="btn" data-close>Cancel</button><button class="btn on" id="nGo">Create plot</button></footer>
+</div></div>
+
+<div class="veil" id="mHelp"><div class="modal wide">
+  <header><h2>Shortcuts</h2><span class="sub">everything has one</span></header>
+  <div class="body"><div class="keys">
+    <div class="g">Tools</div>
+    <div class="k"><kbd>V</kbd></div><div>Select and move</div>
+    <div class="k"><kbd>H</kbd> / <kbd>Space</kbd></div><div>Pan the view</div>
+    <div class="k"><kbd>R</kbd> <kbd>O</kbd> <kbd>Y</kbd></div><div>Rectangle, ellipse, triangle</div>
+    <div class="k"><kbd>P</kbd></div><div>Area — click each corner</div>
+    <div class="k"><kbd>W</kbd></div><div>Pathway — click each turn</div>
+    <div class="k"><kbd>T</kbd> <kbd>X</kbd> <kbd>M</kbd></div><div>Tree, label, measure</div>
+    <div class="g">While drawing</div>
+    <div class="k"><kbd>Enter</kbd></div><div>Finish the shape</div>
+    <div class="k"><kbd>Backspace</kbd></div><div>Undo the last point</div>
+    <div class="k"><kbd>Esc</kbd></div><div>Throw the shape away</div>
+    <div class="g">Editing points</div>
+    <div class="k"><kbd>E</kbd></div><div>Toggle point editing on the selection</div>
+    <div class="k"><kbd>Double-click</kbd></div><div>Add a point on the outline under the cursor</div>
+    <div class="k"><kbd>Alt</kbd>+click a point</div><div>Remove that point</div>
+    <div class="g">Objects</div>
+    <div class="k"><kbd>Del</kbd></div><div>Delete the selection</div>
+    <div class="k"><kbd>L</kbd></div><div>Lock or unlock</div>
+    <div class="k"><kbd>Ctrl</kbd>+<kbd>D</kbd></div><div>Duplicate</div>
+    <div class="k"><kbd>[</kbd> <kbd>]</kbd></div><div>Send back, bring forward</div>
+    <div class="k">Arrows</div><div>Nudge one grid step (<kbd>Shift</kbd> for ten)</div>
+    <div class="g">View and file</div>
+    <div class="k"><kbd>F</kbd></div><div>Fit the plot to the view</div>
+    <div class="k"><kbd>G</kbd></div><div>Snapping on or off</div>
+    <div class="k">Wheel / <kbd>Ctrl</kbd>+wheel</div><div>Zoom to cursor</div>
+    <div class="k"><kbd>Ctrl</kbd>+<kbd>Z</kbd></div><div>Undo (<kbd>Shift</kbd> to redo)</div>
+    <div class="k"><kbd>Ctrl</kbd>+<kbd>S</kbd></div><div>Save now</div>
+  </div></div>
+  <footer><button class="btn" data-close>Got it</button></footer>
+</div></div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/fabric@7.4.0/dist/index.min.js"></script>
+<script>
+/* ══ Plot — a landscape site planner ═══════════════════════════════════════
+   Single file. Fabric.js 7 does the object model; everything else is here.
+   World units are inches: PPF = 12 units per foot.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 0. shorthands ───────────────────────────────────────────────────── */
+const F = window.fabric;
+const FObject = F.FabricObject || F.Object;
+const $  = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const PPF = 12;              // world units per foot (1 unit = 1 inch)
+const SUPER = 2;             // texture supersampling
+const MINZ = 0.06, MAXZ = 12;
+
+/* Feet + inches, the way a tape measure reads. */
+function ft(u, forceIn) {
+  const neg = u < 0; u = Math.abs(u);
+  let f = Math.floor(u / 12), i = Math.round(u - f * 12);
+  if (i === 12) { f++; i = 0; }
+  const s = (i || forceIn) ? `${f}' ${i}"` : `${f}'`;
+  return neg ? '-' + s : s;
+}
+const ft1 = u => (u / 12).toFixed(1) + " ft";
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+/* ── 1. procedural textures ──────────────────────────────────────────── */
+/* Every texture is drawn in code into an offscreen tile, so it stays crisp
+   at any zoom and adds nothing to the saved file — we store only its name. */
+
+function prng(seed) {
+  let s = (seed >>> 0) || 1;
+  return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+}
+/* Draw one scattered mark nine times so the tile has no visible seam. */
+function wrap9(ctx, T, fn) {
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+    ctx.save(); ctx.translate(dx * T, dy * T); fn(ctx); ctx.restore();
+  }
+}
+
+const TEX = {
+  grass: { label: 'Grass', tile: 48, swatch: '#7B9B5C', draw(c, T, r) {
+    c.fillStyle = '#7B9B5C'; c.fillRect(0, 0, T, T);
+    const tones = ['#8CAD68', '#6D8B50', '#96B571', '#5F7C45'];
+    for (let i = 0; i < 340; i++) {
+      const x = r() * T, y = r() * T, h = 2.5 + r() * 4, lean = (r() - .5) * 3;
+      c.strokeStyle = tones[(r() * tones.length) | 0]; c.lineWidth = .9; c.lineCap = 'round';
+      wrap9(c, T, cx => { cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x + lean, y - h); cx.stroke(); });
+    }
+  }},
+  meadow: { label: 'Meadow', tile: 64, swatch: '#93A961', draw(c, T, r) {
+    c.fillStyle = '#93A961'; c.fillRect(0, 0, T, T);
+    for (let i = 0; i < 240; i++) {
+      const x = r() * T, y = r() * T, h = 6 + r() * 9, lean = (r() - .5) * 7;
+      c.strokeStyle = r() > .82 ? '#C9C173' : (r() > .5 ? '#7E9450' : '#A6BA71');
+      c.lineWidth = .8; c.lineCap = 'round';
+      wrap9(c, T, cx => { cx.beginPath(); cx.moveTo(x, y); cx.quadraticCurveTo(x + lean * .4, y - h * .6, x + lean, y - h); cx.stroke(); });
+    }
+  }},
+  hedge: { label: 'Hedge', tile: 40, swatch: '#4F6B3C', draw(c, T, r) {
+    c.fillStyle = '#3E5730'; c.fillRect(0, 0, T, T);
+    for (let i = 0; i < 150; i++) {
+      const x = r() * T, y = r() * T, rad = 2 + r() * 3.4;
+      c.fillStyle = ['#4F6B3C', '#5C7C46', '#456035', '#688A4E'][(r() * 4) | 0];
+      wrap9(c, T, cx => { cx.beginPath(); cx.arc(x, y, rad, 0, 7); cx.fill(); });
+    }
+  }},
+  flagstone: { label: 'Flagstone', tile: 96, swatch: '#9E9A90', draw(c, T, r) {
+    c.fillStyle = '#6E6A62'; c.fillRect(0, 0, T, T);           // grout
+    const n = 3, cell = T / n;
+    for (let gx = 0; gx < n; gx++) for (let gy = 0; gy < n; gy++) {
+      const cx0 = gx * cell, cy0 = gy * cell, pad = 1.6, k = 5;
+      const pts = [];
+      for (let s = 0; s < k; s++) {
+        const a = (s / k) * Math.PI * 2 - Math.PI / 4;
+        const rr = cell / 2 - pad - r() * 2.6;
+        pts.push([cx0 + cell / 2 + Math.cos(a) * rr * 1.32, cy0 + cell / 2 + Math.sin(a) * rr * 1.32]);
+      }
+      c.fillStyle = ['#A6A299', '#9A968C', '#B0AAA0', '#918D84'][(r() * 4) | 0];
+      c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
+      pts.slice(1).forEach(p => c.lineTo(p[0], p[1])); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = .7; c.stroke();
+    }
+    for (let i = 0; i < 260; i++) {                             // speckle
+      const x = r() * T, y = r() * T;
+      c.fillStyle = r() > .5 ? 'rgba(0,0,0,.10)' : 'rgba(255,255,255,.10)';
+      c.fillRect(x, y, 1.2, 1.2);
+    }
+  }},
+  brick: { label: 'Brick', tile: 48, swatch: '#A85C43', draw(c, T, r) {
+    c.fillStyle = '#8A7466'; c.fillRect(0, 0, T, T);            // mortar
+    const bw = 8, bh = 4;
+    for (let row = 0; row * bh < T; row++) {
+      const off = (row % 2) * bw / 2;
+      for (let col = -1; col * bw < T + bw; col++) {
+        const x = col * bw + off, y = row * bh;
+        c.fillStyle = ['#A85C43', '#B0674C', '#98523B', '#A25640'][(r() * 4) | 0];
+        c.fillRect(x + .55, y + .55, bw - 1.1, bh - 1.1);
+      }
+    }
+  }},
+  paver: { label: 'Pavers', tile: 48, swatch: '#B6B2A8', draw(c, T, r) {
+    c.fillStyle = '#8C887F'; c.fillRect(0, 0, T, T);
+    for (let gx = 0; gx < 4; gx++) for (let gy = 0; gy < 4; gy++) {
+      c.fillStyle = ['#BCB8AE', '#B2AEA4', '#C2BEB3', '#ACA79D'][(r() * 4) | 0];
+      c.fillRect(gx * 12 + .8, gy * 12 + .8, 10.4, 10.4);
+    }
+    for (let i = 0; i < 300; i++) { c.fillStyle = 'rgba(0,0,0,.07)'; c.fillRect(r() * T, r() * T, 1.3, 1.3); }
+  }},
+  gravel: { label: 'Gravel', tile: 40, swatch: '#B9AE97', draw(c, T, r) {
+    c.fillStyle = '#A79C86'; c.fillRect(0, 0, T, T);
+    for (let i = 0; i < 420; i++) {
+      const x = r() * T, y = r() * T, rad = .9 + r() * 2.1;
+      c.fillStyle = ['#C8BDA6', '#B4A992', '#D2C8B3', '#9C917C', '#DCD4C2'][(r() * 5) | 0];
+      wrap9(c, T, cx => { cx.beginPath(); cx.ellipse(x, y, rad, rad * (.7 + r() * .5), r() * 3, 0, 7); cx.fill(); });
+    }
+  }},
+  mulch: { label: 'Mulch', tile: 44, swatch: '#6B4A32', draw(c, T, r) {
+    c.fillStyle = '#5A3D29'; c.fillRect(0, 0, T, T);
+    for (let i = 0; i < 460; i++) {
+      const x = r() * T, y = r() * T, len = 1.6 + r() * 3.2, a = r() * Math.PI;
+      c.strokeStyle = ['#7A5539', '#63432E', '#8B6242', '#503524'][(r() * 4) | 0];
+      c.lineWidth = 1 + r() * .7; c.lineCap = 'round';
+      wrap9(c, T, cx => { cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); cx.stroke(); });
+    }
+  }},
+  decking: { label: 'Decking', tile: 72, swatch: '#9A7550', draw(c, T, r) {
+    c.fillStyle = '#8A6845'; c.fillRect(0, 0, T, T);
+    const pw = 6;
+    for (let i = 0; i * pw < T; i++) {
+      c.fillStyle = ['#9E7853', '#946F4B', '#A88157', '#8C6845'][(r() * 4) | 0];
+      c.fillRect(i * pw + .5, 0, pw - 1, T);
+      for (let g = 0; g < 16; g++) {                            // grain
+        const y = r() * T;
+        c.strokeStyle = 'rgba(60,38,20,.22)'; c.lineWidth = .6;
+        c.beginPath(); c.moveTo(i * pw + 1, y); c.lineTo(i * pw + pw - 1, y + (r() - .5) * 8); c.stroke();
+      }
+    }
+  }},
+  concrete: { label: 'Concrete', tile: 48, swatch: '#C4C2BC', draw(c, T, r) {
+    c.fillStyle = '#C4C2BC'; c.fillRect(0, 0, T, T);
+    for (let i = 0; i < 900; i++) {
+      const g = r();
+      c.fillStyle = g > .5 ? 'rgba(255,255,255,.30)' : 'rgba(70,70,66,.16)';
+      c.fillRect(r() * T, r() * T, 1.1, 1.1);
+    }
+  }},
+  water: { label: 'Water', tile: 72, swatch: '#5A8AA6', draw(c, T, r) {
+    const g = c.createLinearGradient(0, 0, T, T);
+    g.addColorStop(0, '#54879F'); g.addColorStop(1, '#4A7B96');
+    c.fillStyle = g; c.fillRect(0, 0, T, T);
+    c.lineWidth = 1.1; c.lineCap = 'round';
+    for (let i = 0; i < 11; i++) {
+      const y = (i / 11) * T, amp = 1.6 + r() * 2.2, ph = r() * T;
+      c.strokeStyle = i % 3 ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.28)';
+      c.beginPath();
+      for (let x = 0; x <= T; x += 2) c.lineTo(x, y + Math.sin((x + ph) / T * Math.PI * 4) * amp);
+      c.stroke();
+    }
+  }},
+  soil: { label: 'Bare soil', tile: 44, swatch: '#5C4632', draw(c, T, r) {
+    c.fillStyle = '#5C4632'; c.fillRect(0, 0, T, T);
+    for (let i = 0; i < 520; i++) {
+      const x = r() * T, y = r() * T, rad = .8 + r() * 2;
+      c.fillStyle = ['#6B5340', '#4E3B2A', '#77604A', '#453423'][(r() * 4) | 0];
+      wrap9(c, T, cx => { cx.beginPath(); cx.arc(x, y, rad, 0, 7); cx.fill(); });
+    }
+  }},
+  sand: { label: 'Sand', tile: 40, swatch: '#D9CBA6', draw(c, T, r) {
+    c.fillStyle = '#D9CBA6'; c.fillRect(0, 0, T, T);
+    for (let i = 0; i < 800; i++) {
+      c.fillStyle = r() > .5 ? 'rgba(255,250,235,.5)' : 'rgba(160,140,100,.25)';
+      c.fillRect(r() * T, r() * T, 1, 1);
+    }
+  }}
+};
+
+const _texCanvas = {}, _texPattern = {};
+function texCanvas(key) {
+  if (_texCanvas[key]) return _texCanvas[key];
+  const d = TEX[key]; if (!d) return null;
+  const T = d.tile, cv = document.createElement('canvas');
+  cv.width = cv.height = T * SUPER;
+  const c = cv.getContext('2d');
+  c.scale(SUPER, SUPER);
+  d.draw(c, T, prng(key.split('').reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7)));
+  return _texCanvas[key] = cv;
+}
+function texPattern(key) {
+  if (!TEX[key]) return null;
+  if (_texPattern[key]) return _texPattern[key];
+  return _texPattern[key] = new F.Pattern({
+    source: texCanvas(key), repeat: 'repeat',
+    patternTransform: [1 / SUPER, 0, 0, 1 / SUPER, 0, 0]
+  });
+}
+const _texURL = {};
+function texSwatchURL(key) {
+  if (_texURL[key]) return _texURL[key];
+  const cv = texCanvas(key);
+  return _texURL[key] = cv ? cv.toDataURL() : '';
+}
+
+/* ── 2. custom object types ──────────────────────────────────────────── */
+/* Polygon and Polyline get a `ldSmooth` flag: same editable points, but the
+   outline is drawn as a quadratic spline through their midpoints. That gives
+   curved beds and winding paths without a separate bezier handle system. */
+
+function renderPoly(obj, ctx, closed) {
+  const p = obj.points, n = p.length, ox = obj.pathOffset.x, oy = obj.pathOffset.y;
+  if (n < 2) return;
+  const mid = (a, b) => [(a.x + b.x) / 2 - ox, (a.y + b.y) / 2 - oy];
+  ctx.beginPath();
+  if (!obj.ldSmooth || n < 3) {
+    ctx.moveTo(p[0].x - ox, p[0].y - oy);
+    for (let i = 1; i < n; i++) ctx.lineTo(p[i].x - ox, p[i].y - oy);
+    if (closed) ctx.closePath();
+  } else if (closed) {
+    const s = mid(p[n - 1], p[0]); ctx.moveTo(s[0], s[1]);
+    for (let i = 0; i < n; i++) {
+      const c = p[i], e = mid(c, p[(i + 1) % n]);
+      ctx.quadraticCurveTo(c.x - ox, c.y - oy, e[0], e[1]);
+    }
+    ctx.closePath();
+  } else {
+    ctx.moveTo(p[0].x - ox, p[0].y - oy);
+    for (let i = 1; i < n - 1; i++) {
+      const c = p[i], e = mid(c, p[i + 1]);
+      ctx.quadraticCurveTo(c.x - ox, c.y - oy, e[0], e[1]);
+    }
+    ctx.lineTo(p[n - 1].x - ox, p[n - 1].y - oy);
+  }
+  obj._renderPaintInOrder(ctx);
+}
+
+class LandPoly extends F.Polygon {
+  static type = 'LandPoly';
+  _render(ctx) { renderPoly(this, ctx, true); }
+}
+class LandPath extends F.Polyline {
+  static type = 'LandPath';
+  _render(ctx) { renderPoly(this, ctx, false); }
+}
+class Tree extends F.Circle {
+  static type = 'Tree';
+  _lobes() {
+    if (this.__l && this.__s === this.ldSeed) return this.__l;
+    const r = prng(this.ldSeed || 1), a = [];
+    for (let i = 0; i < 16; i++) a.push(i % 2 ? .70 + r() * .09 : .96 + r() * .10);
+    this.__s = this.ldSeed; return this.__l = a;
+  }
+  _render(ctx) {
+    const R = this.radius, L = this._lobes(), n = L.length, P = [];
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2;
+      P.push({ x: Math.cos(a) * R * L[i], y: Math.sin(a) * R * L[i] });
+    }
+    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    ctx.beginPath();
+    const s = mid(P[n - 1], P[0]); ctx.moveTo(s.x, s.y);
+    for (let i = 0; i < n; i++) {
+      const c = P[i], e = mid(c, P[(i + 1) % n]);
+      ctx.quadraticCurveTo(c.x, c.y, e.x, e.y);
+    }
+    ctx.closePath();
+    this._renderPaintInOrder(ctx);
+    ctx.save(); ctx.clip();
+    ctx.globalAlpha = .14; ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(R * .42, R * .42, R * .95, 0, 7); ctx.fill();
+    ctx.globalAlpha = .16; ctx.fillStyle = '#C6DFA6';
+    ctx.beginPath(); ctx.arc(-R * .30, -R * .32, R * .50, 0, 7); ctx.fill();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(1.4, R * .07), 0, 7);
+    ctx.fillStyle = 'rgba(56,38,22,.9)'; ctx.fill();
+  }
+}
+[LandPoly, LandPath, Tree].forEach(K => {
+  try { F.classRegistry.setClass(K); } catch (e) {}
+  try { F.classRegistry.setClass(K, K.type); } catch (e) {}
+  try { F.classRegistry.setClass(K, K.type.toLowerCase()); } catch (e) {}
+});
+
+/* Custom fields ride along in the saved JSON. Textures are swapped for a flat
+   colour on the way out so the file stays small, then re-applied on load. */
+const CUSTOM = ['ldId', 'ldKind', 'ldTex', 'ldStrokeTex', 'ldLock', 'ldSmooth',
+                'ldName', 'ldLabelFor', 'ldSeed', 'ldWidthFt'];
+const _toObject = FObject.prototype.toObject;
+FObject.prototype.toObject = function (extra) {
+  const o = _toObject.call(this, [...(extra || []), ...CUSTOM]);
+  if (this.ldTex && TEX[this.ldTex]) o.fill = TEX[this.ldTex].swatch;
+  if (this.ldStrokeTex && TEX[this.ldStrokeTex]) o.stroke = TEX[this.ldStrokeTex].swatch;
+  return o;
+};
+
+/* ── 3. canvas, project state ────────────────────────────────────────── */
+const canvas = new F.Canvas('cv', {
+  preserveObjectStacking: true,
+  uniformScaling: false,
+  backgroundColor: null,
+  stopContextMenu: true,
+  fireRightClick: false,
+  selectionColor: 'rgba(255,46,136,.10)',
+  selectionBorderColor: '#FF2E88',
+  selectionLineWidth: 1,
+  selectionDashArray: [3, 3]
+});
+
+const MARK = '#FF2E88', PAPER = '#E6E7DF', RULE = '#9DA396';
+
+let P = null;                        // active project meta
+const State = { tool: 'select', snap: true, showGrid: true, space: false, panning: false };
+
+function dressControls(o) {
+  o.set({
+    cornerStyle: 'rect', cornerSize: 8, transparentCorners: false,
+    cornerColor: '#fff', cornerStrokeColor: '#0E151C',
+    borderColor: MARK, borderScaleFactor: 1.4, padding: 1
+  });
+  o.setControlsVisibility({ mtr: true });
+  return o;
+}
+function applyLock(o) {
+  const L = !!o.ldLock;
+  o.set({
+    lockMovementX: L, lockMovementY: L, lockRotation: L,
+    lockScalingX: L, lockScalingY: L, lockSkewingX: L, lockSkewingY: L,
+    hasControls: !L, hoverCursor: L ? 'not-allowed' : 'move'
+  });
+  if (L && o.ldEditing) setEditMode(o, false);
+}
+function applyTex(o) {
+  if (o.ldTex && TEX[o.ldTex]) o.set('fill', texPattern(o.ldTex));
+  if (o.ldStrokeTex && TEX[o.ldStrokeTex]) o.set('stroke', texPattern(o.ldStrokeTex));
+}
+function tag(o, kind) {
+  if (!o.ldId) o.ldId = uid();
+  if (kind) o.ldKind = kind;
+  o.objectCaching = false;
+  dressControls(o); applyLock(o);
+  return o;
+}
+function objects() { return canvas.getObjects(); }
+function byId(id) { return objects().find(o => o.ldId === id); }
+
+/* ── 4. grid, rulers, viewport ───────────────────────────────────────── */
+const gridcv = $('#gridcv'), gctx = gridcv.getContext('2d');
+const rT = $('#rulerT'), rL = $('#rulerL');
+const rTc = rT.getContext('2d'), rLc = rL.getContext('2d');
+
+function sizeCanvas(cv, w, h) {
+  const d = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, w * d); cv.height = Math.max(1, h * d);
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  cv.getContext('2d').setTransform(d, 0, 0, d, 0, 0);
+}
+function resize() {
+  const f = $('#field'), w = f.clientWidth, h = f.clientHeight;
+  canvas.setDimensions({ width: w, height: h });
+  sizeCanvas(gridcv, w, h);
+  sizeCanvas(rT, w, 22);
+  sizeCanvas(rL, 24, h);
+  redraw();
+}
+function vp() { const v = canvas.viewportTransform; return { z: v[0], tx: v[4], ty: v[5] }; }
+const w2s = (x, y) => { const v = vp(); return { x: x * v.z + v.tx, y: y * v.z + v.ty }; };
+const s2w = (x, y) => { const v = vp(); return { x: (x - v.tx) / v.z, y: (y - v.ty) / v.z }; };
+
+function redraw() { drawGrid(); drawRulers(); canvas.requestRenderAll(); syncViewUI(); }
+
+function drawGrid() {
+  const W = canvas.getWidth(), H = canvas.getHeight();
+  gctx.clearRect(0, 0, W, H);
+  if (!P) return;
+  const { z, tx, ty } = vp();
+  const pw = P.widthFt * PPF * z, ph = P.heightFt * PPF * z;
+
+  gctx.save();
+  gctx.fillStyle = PAPER;
+  gctx.fillRect(tx, ty, pw, ph);
+  gctx.beginPath(); gctx.rect(tx, ty, pw, ph); gctx.clip();
+
+  if (State.showGrid) {
+    const step = P.gridFt * PPF * z, major = step * 5;
+    const line = (a, b, c, d, col, wd) => {
+      gctx.strokeStyle = col; gctx.lineWidth = wd;
+      gctx.beginPath(); gctx.moveTo(a, b); gctx.lineTo(c, d); gctx.stroke();
+    };
+    const iX0 = Math.max(0, Math.floor(-tx / step)), iX1 = Math.min(Math.ceil(pw / step), Math.ceil((W - tx) / step));
+    const iY0 = Math.max(0, Math.floor(-ty / step)), iY1 = Math.min(Math.ceil(ph / step), Math.ceil((H - ty) / step));
+    if (step > 3.5) {
+      for (let i = iX0; i <= iX1; i++) if (i % 5)
+        line(Math.round(tx + i * step) + .5, ty, Math.round(tx + i * step) + .5, ty + ph, 'rgba(90,104,84,.22)', 1);
+      for (let i = iY0; i <= iY1; i++) if (i % 5)
+        line(tx, Math.round(ty + i * step) + .5, tx + pw, Math.round(ty + i * step) + .5, 'rgba(90,104,84,.22)', 1);
+    }
+    if (major > 3.5) {
+      for (let i = Math.floor(iX0 / 5) * 5; i <= iX1; i += 5)
+        line(Math.round(tx + i * step) + .5, ty, Math.round(tx + i * step) + .5, ty + ph, 'rgba(74,88,68,.42)', 1);
+      for (let i = Math.floor(iY0 / 5) * 5; i <= iY1; i += 5)
+        line(tx, Math.round(ty + i * step) + .5, tx + pw, Math.round(ty + i * step) + .5, 'rgba(74,88,68,.42)', 1);
+    }
+  }
+  gctx.restore();
+
+  gctx.strokeStyle = '#4A5844'; gctx.lineWidth = 1.5;
+  gctx.strokeRect(tx - .5, ty - .5, pw + 1, ph + 1);
+  drawScaleBar(W, H, z);
+}
+
+/* The scale bar: pick a round number of feet that lands near 120px. */
+function drawScaleBar(W, H, z) {
+  const nice = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500];
+  let feet = nice.find(n => n * PPF * z > 105) || 1000;
+  const px = feet * PPF * z, x = W - px - 16, y = H - 20;
+  if (x < 8) return;
+  gctx.save();
+  gctx.fillStyle = 'rgba(14,21,28,.82)';
+  gctx.fillRect(x - 9, y - 15, px + 18, 27);
+  gctx.strokeStyle = '#E7EDF3'; gctx.lineWidth = 1;
+  gctx.beginPath();
+  gctx.moveTo(x, y - 5); gctx.lineTo(x, y); gctx.lineTo(x + px, y); gctx.lineTo(x + px, y - 5);
+  gctx.moveTo(x + px / 2, y); gctx.lineTo(x + px / 2, y - 3.5);
+  gctx.stroke();
+  gctx.fillStyle = '#E7EDF3';
+  gctx.font = '500 10px "IBM Plex Mono",monospace';
+  gctx.textAlign = 'center';
+  gctx.fillText(feet + ' ft', x + px / 2, y - 7);
+  gctx.restore();
+}
+
+function drawRulers() {
+  const W = canvas.getWidth(), H = canvas.getHeight();
+  const { z, tx, ty } = vp();
+  [[rTc, W, 22], [rLc, 24, H]].forEach(([c, w, h]) => {
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = '#151E27'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#2A3743'; c.lineWidth = 1;
+    c.beginPath();
+    if (w > h) { c.moveTo(0, h - .5); c.lineTo(w, h - .5); }
+    else { c.moveTo(w - .5, 0); c.lineTo(w - .5, h); }
+    c.stroke();
+  });
+  if (!P) return;
+  const g = P.gridFt, nice = [1, 2, 5, 10, 20, 25, 50, 100, 250, 500];
+  let lab = nice.find(n => n * PPF * z > 52) || 1000;
+  lab = Math.max(lab, g);
+  const tick = Math.max(g, lab / 5);
+
+  rTc.font = '500 9px "IBM Plex Mono",monospace';
+  rTc.fillStyle = '#8798A8'; rTc.textAlign = 'left';
+  const wStart = Math.max(0, Math.floor((-tx / z / PPF) / tick) * tick);
+  const wEnd = Math.min(P.widthFt, (canvas.getWidth() - tx) / z / PPF) + tick;
+  for (let fq = wStart; fq <= wEnd; fq += tick) {
+    const x = Math.round(tx + fq * PPF * z) + .5;
+    const big = Math.abs(fq % lab) < 1e-6;
+    rTc.strokeStyle = big ? '#8798A8' : '#3D4B58'; rTc.lineWidth = 1;
+    rTc.beginPath(); rTc.moveTo(x, big ? 10 : 16); rTc.lineTo(x, 22); rTc.stroke();
+    if (big) rTc.fillText(fq + "'", x + 3, 9);
+  }
+  rLc.font = '500 9px "IBM Plex Mono",monospace';
+  rLc.fillStyle = '#8798A8'; rLc.textAlign = 'center';
+  const hStart = Math.max(0, Math.floor((-ty / z / PPF) / tick) * tick);
+  const hEnd = Math.min(P.heightFt, (canvas.getHeight() - ty) / z / PPF) + tick;
+  for (let fq = hStart; fq <= hEnd; fq += tick) {
+    const y = Math.round(ty + fq * PPF * z) + .5;
+    const big = Math.abs(fq % lab) < 1e-6;
+    rLc.strokeStyle = big ? '#8798A8' : '#3D4B58'; rLc.lineWidth = 1;
+    rLc.beginPath(); rLc.moveTo(big ? 10 : 16, y); rLc.lineTo(24, y); rLc.stroke();
+    if (big) { rLc.save(); rLc.translate(7, y); rLc.rotate(-Math.PI / 2); rLc.fillText(fq + "'", 0, 3); rLc.restore(); }
+  }
+}
+
+function setZoom(z, pt) {
+  z = clamp(z, MINZ, MAXZ);
+  if (pt) canvas.zoomToPoint(new F.Point(pt.x, pt.y), z);
+  else canvas.setZoom(z);
+  redraw();
+}
+function fitPlot() {
+  if (!P) return;
+  const W = canvas.getWidth(), H = canvas.getHeight(), pad = 34;
+  const z = clamp(Math.min((W - pad * 2) / (P.widthFt * PPF), (H - pad * 2) / (P.heightFt * PPF)), MINZ, MAXZ);
+  canvas.setViewportTransform([z, 0, 0, z, (W - P.widthFt * PPF * z) / 2, (H - P.heightFt * PPF * z) / 2]);
+  redraw();
+}
+function syncViewUI() {
+  $('#zoomVal').textContent = Math.round(vp().z * 100) + '%';
+  if (P) {
+    $('#stPlot').textContent = `${P.widthFt} × ${P.heightFt} ft`;
+    $('#stGrid').textContent = `${P.gridFt} ft` + (State.snap ? '' : ' (free)');
+  }
+}
+
+
+/* ── 5. making objects ───────────────────────────────────────────────── */
+const gridU = () => (P ? P.gridFt * PPF : 12);
+const snapU = v => State.snap ? Math.round(v / gridU()) * gridU() : Math.round(v * 4) / 4;
+
+function shapePoints(kind, x, y, w, h) {
+  if (kind === 'tri') return [{ x: x + w / 2, y }, { x: x + w, y: y + h }, { x, y: y + h }];
+  if (kind === 'ellipse') {
+    const n = 16, a = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / n * Math.PI * 2 - Math.PI / 2;
+      a.push({ x: x + w / 2 + Math.cos(t) * w / 2, y: y + h / 2 + Math.sin(t) * h / 2 });
+    }
+    return a;
+  }
+  return [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }];
+}
+
+function newArea(pts, opts) {
+  const o = new LandPoly(pts, Object.assign({
+    fill: TEX.grass.swatch, stroke: '#41503A', strokeWidth: 1.5, strokeUniform: true,
+    exactBoundingBox: true, objectCaching: false, ldTex: 'grass', ldSmooth: false,
+    ldName: 'Area'
+  }, opts || {}));
+  tag(o, 'area'); applyTex(o); return o;
+}
+function newPathway(pts, opts) {
+  const o = new LandPath(pts, Object.assign({
+    fill: null, stroke: TEX.flagstone.swatch, strokeWidth: 4 * PPF,
+    strokeLineCap: 'round', strokeLineJoin: 'round', strokeUniform: false,
+    exactBoundingBox: true, objectCaching: false,
+    ldStrokeTex: 'flagstone', ldSmooth: true, ldWidthFt: 4, ldName: 'Pathway'
+  }, opts || {}));
+  tag(o, 'path'); applyTex(o); return o;
+}
+function newTree(cx, cy, diaFt, opts) {
+  const o = new Tree(Object.assign({
+    left: cx, top: cy, originX: 'center', originY: 'center',
+    radius: (diaFt || 16) * PPF / 2, fill: '#5E7F45', stroke: '#33492A',
+    strokeWidth: 1.5, strokeUniform: true, objectCaching: false,
+    ldSeed: (Math.random() * 1e6) | 0, ldName: 'Tree'
+  }, opts || {}));
+  tag(o, 'tree'); return o;
+}
+function newLabel(x, y, text) {
+  const o = new F.IText(text || 'Label', {
+    left: x, top: y, originX: 'center', originY: 'center',
+    fontFamily: '"Barlow Semi Condensed", sans-serif', fontSize: 2 * PPF,
+    fill: '#17212B', textAlign: 'center', objectCaching: false,
+    backgroundColor: 'rgba(230,231,223,.80)', ldName: 'Label'
+  });
+  tag(o, 'label'); return o;
+}
+function newBoundary() {
+  const W = P.widthFt * PPF, H = P.heightFt * PPF;
+  const o = new LandPoly([{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }], {
+    fill: 'rgba(0,0,0,0)', stroke: '#2F3B2B', strokeWidth: 3, strokeUniform: true,
+    strokeDashArray: [11, 7], exactBoundingBox: true, objectCaching: false,
+    ldName: 'Property boundary'
+  });
+  tag(o, 'boundary'); return o;
+}
+
+/* ── 6. point editing ────────────────────────────────────────────────── */
+function polyControls(o) {
+  const cu = F.controlsUtils;
+  if (cu && cu.createPolyControls) { try { return cu.createPolyControls(o); } catch (e) {} }
+  return manualPolyControls(o);
+}
+function defaultControls() {
+  const cu = F.controlsUtils;
+  if (cu && cu.createObjectDefaultControls) return cu.createObjectDefaultControls();
+  return Object.assign({}, FObject.prototype.controls);
+}
+/* Fallback, following the shape of Fabric's own polygon-controls demo. */
+function manualPolyControls(poly) {
+  const last = poly.points.length - 1;
+  function positionHandler(dim, finalMatrix, obj) {
+    const i = this.pointIndex;
+    return F.util.transformPoint(
+      { x: obj.points[i].x - obj.pathOffset.x, y: obj.points[i].y - obj.pathOffset.y },
+      F.util.multiplyTransformMatrices(obj.canvas.viewportTransform, obj.calcTransformMatrix()));
+  }
+  function actionHandler(ev, transform, x, y) {
+    const o = transform.target, ctl = o.controls[o.__corner];
+    const local = o.toLocalPoint(new F.Point(x, y), 'center', 'center');
+    const size = o._getTransformedDimensions(0, 0);
+    const sw = o.strokeUniform
+      ? { x: o.strokeWidth / o.scaleX, y: o.strokeWidth / o.scaleY }
+      : { x: o.strokeWidth, y: o.strokeWidth };
+    const base = { x: o.width + sw.x, y: o.height + sw.y };
+    o.points[ctl.pointIndex] = new F.Point(
+      local.x * base.x / size.x + o.pathOffset.x,
+      local.y * base.y / size.y + o.pathOffset.y);
+    if (o.setDimensions) o.setDimensions(); else if (o.setBoundingBox) o.setBoundingBox();
+    return true;
+  }
+  const anchored = (anchorIndex, fn) => function (ev, transform, x, y) {
+    const o = transform.target;
+    const abs = F.util.transformPoint(
+      { x: o.points[anchorIndex].x - o.pathOffset.x, y: o.points[anchorIndex].y - o.pathOffset.y },
+      o.calcTransformMatrix());
+    const r = fn(ev, transform, x, y);
+    const nx = (o.points[anchorIndex].x - o.pathOffset.x) / o.width;
+    const ny = (o.points[anchorIndex].y - o.pathOffset.y) / o.height;
+    o.setPositionByOrigin(abs, nx + .5, ny + .5);
+    return r;
+  };
+  return poly.points.reduce((acc, pt, i) => {
+    acc['p' + i] = new F.Control({
+      actionName: 'modifyPoly', pointIndex: i,
+      positionHandler, actionHandler: anchored(i > 0 ? i - 1 : last, actionHandler)
+    });
+    return acc;
+  }, {});
+}
+
+function setEditMode(o, on) {
+  if (!o || !o.points) return;
+  if (on && o.ldLock) { toast('Unlock it first.'); return; }
+  o.ldEditing = !!on;
+  if (on) {
+    o.controls = polyControls(o);
+    o.set({ cornerStyle: 'circle', cornerColor: MARK, cornerStrokeColor: '#fff',
+            cornerSize: 10, transparentCorners: false, hasBorders: false });
+  } else {
+    o.controls = defaultControls();
+    o.set({ hasBorders: true }); dressControls(o);
+  }
+  o.setCoords();
+  canvas.requestRenderAll(); renderInspector();
+}
+function toPointSpace(o, sx, sy) {
+  const p = F.util.transformPoint(new F.Point(sx, sy), F.util.invertTransform(o.calcTransformMatrix()));
+  return { x: p.x + o.pathOffset.x, y: p.y + o.pathOffset.y };
+}
+function refreshPoly(o) {
+  if (o.setDimensions) o.setDimensions(); else if (o.setBoundingBox) o.setBoundingBox(true);
+  o.setCoords();
+  if (o.ldEditing) o.controls = polyControls(o);
+  canvas.requestRenderAll(); pushHistory(); renderInspector();
+}
+function addPointAt(o, sx, sy) {
+  const t = toPointSpace(o, sx, sy), pts = o.points, n = pts.length;
+  const segs = (o.ldKind === 'path') ? n - 1 : n;
+  let best = 1, bd = Infinity, bp = null;
+  for (let i = 0; i < segs; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    const dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy || 1;
+    const u = clamp(((t.x - a.x) * dx + (t.y - a.y) * dy) / L, 0, 1);
+    const px = a.x + dx * u, py = a.y + dy * u;
+    const d = (px - t.x) * (px - t.x) + (py - t.y) * (py - t.y);
+    if (d < bd) { bd = d; best = i + 1; bp = { x: px, y: py }; }
+  }
+  if (!bp) return;
+  pts.splice(best, 0, new F.Point(bp.x, bp.y));
+  refreshPoly(o);
+}
+function removePoint(o, i) {
+  const min = o.ldKind === 'path' ? 2 : 3;
+  if (o.points.length <= min) { toast(`This shape needs at least ${min} points.`); return; }
+  o.points.splice(i, 1);
+  refreshPoly(o);
+}
+
+/* ── 7. tools and drawing ────────────────────────────────────────────── */
+let draft = null;          // in-progress shape
+let measure = null;        // in-progress measurement
+
+function setTool(t) {
+  cancelDraft();
+  State.tool = t;
+  $$('.tool').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+  const drawing = !['select', 'pan'].includes(t);
+  canvas.selection = t === 'select';
+  canvas.skipTargetFind = drawing;
+  canvas.defaultCursor = t === 'pan' ? 'grab' : (drawing ? 'crosshair' : 'default');
+  if (drawing) canvas.discardActiveObject();
+  const H = {
+    poly: 'Click each corner of the area. <b>Enter</b> to close, <b>Backspace</b> to step back, <b>Esc</b> to cancel.',
+    path: 'Click each turn of the path. <b>Enter</b> to finish, <b>Backspace</b> to step back, <b>Esc</b> to cancel.',
+    rect: 'Drag out a rectangle.', ellipse: 'Drag out an ellipse.', tri: 'Drag out a triangle.',
+    tree: 'Click to plant a tree. Drag its handles to change the canopy.',
+    label: 'Click where the label goes, then type.',
+    measure: 'Drag between two points to measure. <b>Esc</b> clears it.',
+    pan: 'Drag to move the view.'
+  }[t];
+  const h = $('#hint');
+  h.style.display = H ? 'block' : 'none'; h.innerHTML = H || '';
+  canvas.requestRenderAll();
+}
+function cancelDraft() {
+  if (draft) { if (draft.temp) canvas.remove(draft.temp); draft = null; }
+  if (measure) { canvas.remove(measure.line); canvas.remove(measure.tag); measure = null; }
+  canvas.requestRenderAll();
+}
+function ghost(pts, closed) {
+  const K = closed ? LandPoly : LandPath;
+  const g = new K(pts, {
+    fill: closed ? 'rgba(255,46,136,.10)' : null, stroke: MARK, strokeWidth: 1.5,
+    strokeUniform: true, strokeDashArray: [6, 4], objectCaching: false,
+    selectable: false, evented: false, excludeFromExport: true, exactBoundingBox: true
+  });
+  g.ldGhost = true; return g;
+}
+
+function scenePoint(opt) {
+  const p = canvas.getScenePoint ? canvas.getScenePoint(opt.e) : canvas.getPointer(opt.e);
+  return { x: p.x, y: p.y };
+}
+
+canvas.on('mouse:down', opt => {
+  const e = opt.e, sp = scenePoint(opt);
+  objects().forEach(o => { o._pl = o.left; o._pt = o.top; });
+
+  if (State.tool === 'pan' || State.space || e.button === 1 || (e.altKey && State.tool === 'select' && !opt.target)) {
+    State.panning = { x: e.clientX, y: e.clientY };
+    canvas.setCursor('grabbing'); return;
+  }
+  const t = State.tool;
+
+  if (t === 'select') {
+    const tgt = opt.target;
+    if (tgt && tgt.ldEditing && tgt.__corner && e.altKey) {
+      const i = parseInt(String(tgt.__corner).replace(/\D/g, ''), 10);
+      if (!isNaN(i)) { removePoint(tgt, i); opt.e.preventDefault(); }
+    }
+    return;
+  }
+  const x = snapU(sp.x), y = snapU(sp.y);
+
+  if (t === 'rect' || t === 'ellipse' || t === 'tri') {
+    draft = { kind: t, x, y, drag: true, temp: ghost(shapePoints(t, x, y, gridU(), gridU()), true) };
+    canvas.add(draft.temp);
+  } else if (t === 'poly' || t === 'path') {
+    if (!draft) {
+      draft = { kind: t, pts: [{ x, y }], temp: null };
+    } else {
+      const f = draft.pts[0];
+      if (draft.pts.length > 2 && Math.hypot(x - f.x, y - f.y) < gridU() * .7 && t === 'poly') { commitDraft(); return; }
+      draft.pts.push({ x, y });
+    }
+    updateDraftGhost({ x, y });
+  } else if (t === 'tree') {
+    const o = newTree(x, y, 16);
+    canvas.add(o); canvas.setActiveObject(o); setTool('select'); pushHistory();
+  } else if (t === 'label') {
+    const o = newLabel(x, y, 'Label');
+    canvas.add(o); setTool('select'); canvas.setActiveObject(o);
+    o.enterEditing(); o.selectAll(); pushHistory();
+  } else if (t === 'measure') {
+    const line = new F.Line([sp.x, sp.y, sp.x, sp.y], {
+      stroke: MARK, strokeWidth: 1.5, strokeUniform: true, strokeDashArray: [7, 4],
+      selectable: false, evented: false, excludeFromExport: true
+    });
+    const tg = new F.Text('0\'', {
+      left: sp.x, top: sp.y - 18, fontFamily: '"IBM Plex Mono", monospace', fontSize: 16,
+      fill: '#fff', backgroundColor: MARK, selectable: false, evented: false, excludeFromExport: true
+    });
+    measure = { line, tag: tg, x0: sp.x, y0: sp.y };
+    canvas.add(line, tg);
+  }
+});
+
+function updateDraftGhost(cursor) {
+  if (!draft || !draft.pts) return;
+  if (draft.temp) canvas.remove(draft.temp);
+  const pts = cursor ? draft.pts.concat([cursor]) : draft.pts.slice();
+  if (pts.length < 2) { draft.temp = null; canvas.requestRenderAll(); return; }
+  draft.temp = ghost(pts, draft.kind === 'poly' && pts.length > 2);
+  canvas.add(draft.temp);
+  canvas.requestRenderAll();
+}
+
+canvas.on('mouse:move', opt => {
+  const e = opt.e, sp = scenePoint(opt);
+  $('#stCur').textContent = `${ft(sp.x)} , ${ft(sp.y)}`;
+
+  if (State.panning) {
+    canvas.relativePan(new F.Point(e.clientX - State.panning.x, e.clientY - State.panning.y));
+    State.panning = { x: e.clientX, y: e.clientY };
+    drawGrid(); drawRulers(); return;
+  }
+  const x = snapU(sp.x), y = snapU(sp.y);
+
+  if (draft && draft.drag) {
+    const w = x - draft.x, h = y - draft.y;
+    const pts = shapePoints(draft.kind, Math.min(draft.x, x), Math.min(draft.y, y), Math.abs(w) || 1, Math.abs(h) || 1);
+    canvas.remove(draft.temp);
+    draft.temp = ghost(pts, true); canvas.add(draft.temp);
+    $('#stSelWrap').style.display = ''; $('#stSel').textContent = `${ft1(Math.abs(w))} × ${ft1(Math.abs(h))}`;
+    canvas.requestRenderAll();
+  } else if (draft && draft.pts) {
+    updateDraftGhost({ x, y });
+    const a = draft.pts[draft.pts.length - 1];
+    $('#stSelWrap').style.display = ''; $('#stSel').textContent = ft1(Math.hypot(x - a.x, y - a.y)) + ' segment';
+  } else if (measure) {
+    measure.line.set({ x2: sp.x, y2: sp.y });
+    const d = Math.hypot(sp.x - measure.x0, sp.y - measure.y0);
+    measure.tag.set({ text: ft(d, true), left: (measure.x0 + sp.x) / 2, top: (measure.y0 + sp.y) / 2 - 18 });
+    canvas.requestRenderAll();
+  }
+});
+
+canvas.on('mouse:up', () => {
+  if (State.panning) { State.panning = false; canvas.setCursor(State.tool === 'pan' ? 'grab' : 'default'); redraw(); return; }
+  if (draft && draft.drag) commitDraft();
+});
+
+canvas.on('mouse:dblclick', opt => {
+  if (draft && draft.pts) { commitDraft(); return; }
+  const t = opt.target;
+  if (t && t.points && !t.ldLock && State.tool === 'select') {
+    if (!t.ldEditing) setEditMode(t, true);
+    else { const sp = scenePoint(opt); addPointAt(t, sp.x, sp.y); }
+  }
+});
+
+function commitDraft() {
+  if (!draft) return;
+  let made = null;
+  if (draft.drag) {
+    const g = draft.temp;
+    canvas.remove(g);
+    const pts = g.points.map(p => ({ x: p.x, y: p.y }));
+    made = newArea(pts, draft.kind === 'ellipse' ? { ldSmooth: true, ldName: 'Bed' } : {});
+    if (made.width < 4 || made.height < 4) { made = null; }
+  } else if (draft.pts) {
+    const need = draft.kind === 'poly' ? 3 : 2;
+    if (draft.temp) canvas.remove(draft.temp);
+    const pts = draft.pts.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 1);
+    if (pts.length >= need) {
+      made = draft.kind === 'poly' ? newArea(pts) : newPathway(pts);
+    }
+  }
+  draft = null;
+  if (made) {
+    canvas.add(made);
+    setTool('select');
+    canvas.setActiveObject(made);
+    pushHistory();
+  } else canvas.requestRenderAll();
+}
+
+
+/* ── 8. measurements ─────────────────────────────────────────────────── */
+function metrics(o) {
+  if (o.points) {
+    const p = o.points, n = p.length, sx = Math.abs(o.scaleX), sy = Math.abs(o.scaleY);
+    const closed = o.ldKind !== 'path';
+    let per = 0, a2 = 0;
+    for (let i = 0; i < n; i++) {
+      const A = p[i], B = p[(i + 1) % n];
+      if (i < n - 1 || closed) per += Math.hypot((B.x - A.x) * sx, (B.y - A.y) * sy);
+      a2 += (A.x * sx) * (B.y * sy) - (B.x * sx) * (A.y * sy);
+    }
+    const len = per / PPF;
+    if (closed) return { area: Math.abs(a2 / 2) / (PPF * PPF), len, kind: 'perimeter' };
+    return { area: len * (o.strokeWidth / PPF), len, kind: 'length' };
+  }
+  if (o.ldKind === 'tree') {
+    const d = o.radius * 2 * Math.abs(o.scaleX) / PPF;
+    return { area: Math.PI * d * d / 4, len: 0, dia: d, kind: 'canopy' };
+  }
+  const w = o.width * Math.abs(o.scaleX) / PPF, h = o.height * Math.abs(o.scaleY) / PPF;
+  return { area: w * h, len: 2 * (w + h), kind: 'perimeter' };
+}
+const num = (v, d) => (Math.round(v * Math.pow(10, d || 1)) / Math.pow(10, d || 1)).toLocaleString();
+
+/* ── 9. inspector ────────────────────────────────────────────────────── */
+const TEXKEYS = Object.keys(TEX);
+const KINDNAME = { area: 'Area', path: 'Pathway', tree: 'Tree', label: 'Label', boundary: 'Boundary' };
+
+function swatchGrid(sel, act, allowNone) {
+  let h = '<div class="swatches">';
+  if (allowNone) h += `<button class="sw ${!sel ? 'on' : ''}" data-act="${act}" data-tex=""
+      style="background:repeating-linear-gradient(45deg,#1C2732 0 5px,#151E27 5px 10px)"><span>None</span></button>`;
+  TEXKEYS.forEach(k => {
+    h += `<button class="sw ${sel === k ? 'on' : ''}" data-act="${act}" data-tex="${k}"
+      title="${TEX[k].label}" style="background-image:url(${texSwatchURL(k)});background-size:52px"><span>${TEX[k].label}</span></button>`;
+  });
+  return h + '</div>';
+}
+
+function renderInspector() {
+  const insp = $('#insp'), a = canvas.getActiveObject();
+  const sel = canvas.getActiveObjects();
+
+  const plotSect = P ? `
+    <div class="sect">
+      <h3>Plot</h3>
+      <div class="row"><label>Width</label><input class="fld" id="pW" type="number" min="4" step="1" value="${P.widthFt}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
+      <div class="row"><label>Depth</label><input class="fld" id="pH" type="number" min="4" step="1" value="${P.heightFt}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
+      <div class="row"><label>Grid spacing</label><input class="fld" id="pG" type="number" min="0.25" step="0.25" value="${P.gridFt}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
+      <div class="row"><button class="btn" id="pReset">Reset boundary to plot</button></div>
+      <div class="readout"><span>Plot area</span><b>${num(P.widthFt * P.heightFt, 0)} sq ft</b></div>
+    </div>` : '';
+
+  if (!a) {
+    insp.innerHTML = plotSect + `<div class="empty">Nothing selected.<br>Pick a tool on the left, or click a shape to change it.</div>`;
+    $('#stSelWrap').style.display = 'none';
+    wirePlot(); return;
+  }
+  if (sel.length > 1) {
+    insp.innerHTML = `<div class="sect"><h3>Selection</h3>
+      <div class="readout"><span>Objects</span><b>${sel.length}</b></div>
+      <div class="row" style="margin-top:9px"><button class="btn" data-act="lockAll">Lock all</button><button class="btn" data-act="unlockAll">Unlock all</button></div>
+      <div class="row"><button class="btn" data-act="dup">Duplicate</button><button class="btn warn" data-act="del">Delete</button></div>
+    </div>` + plotSect;
+    $('#stSelWrap').style.display = '';
+    $('#stSel').textContent = sel.length + ' objects';
+    wirePlot(); return;
+  }
+
+  const m = metrics(a), k = a.ldKind || 'shape';
+  const isPoly = !!a.points, isPath = k === 'path', isTree = k === 'tree', isLabel = k === 'label';
+  const myLabel = objects().find(o => o.ldLabelFor === a.ldId);
+
+  let h = `<div class="sect">
+    <div class="row" style="margin-bottom:9px">
+      <span class="chip ${a.ldLock ? 'locked' : ''}">${a.ldLock ? 'Locked' : (KINDNAME[k] || 'Shape')}</span>
+      <span style="flex:1"></span>
+      <button class="btn" data-act="lock" style="flex:none;padding:3px 10px">${a.ldLock ? 'Unlock' : 'Lock'}</button>
+    </div>
+    <div class="row"><input class="fld" id="oName" value="${(a.ldName || '').replace(/"/g, '&quot;')}" style="width:100%;text-align:left" placeholder="Name this ${(KINDNAME[k] || 'shape').toLowerCase()}"></div>
+    ${isLabel ? '' : `<div class="readout"><span>${m.kind === 'canopy' ? 'Canopy' : 'Area'}</span><b>${num(m.area, 0)} sq ft</b></div>`}
+    ${(m.len && !isLabel) ? `<div class="readout"><span>${m.kind === 'length' ? 'Length' : 'Perimeter'}</span><b>${num(m.len)} ft</b></div>` : ''}
+    ${isPoly ? `<div class="readout"><span>Points</span><b>${a.points.length}</b></div>` : ''}
+  </div>`;
+
+  if (!a.ldLock) {
+    h += `<div class="sect"><h3>Shape</h3>`;
+    if (isPoly) {
+      h += `<div class="row"><button class="btn ${a.ldEditing ? 'on' : ''}" data-act="edit">${a.ldEditing ? 'Done editing points' : 'Edit points'}</button></div>
+        <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">
+          Double-click the outline to add a point. <kbd>Alt</kbd>+click a point to remove it.</div>
+        <div class="row"><button class="btn ${a.ldSmooth ? 'on' : ''}" data-act="smooth">${a.ldSmooth ? 'Curved edges' : 'Straight edges'}</button></div>`;
+    }
+    if (isPath) h += `<div class="row"><label>Path width</label><input class="fld" id="oPW" type="number" min="0.5" step="0.5" value="${num(a.strokeWidth / PPF)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>`;
+    if (isTree) h += `<div class="row"><label>Canopy</label><input class="fld" id="oDia" type="number" min="1" step="1" value="${num(m.dia, 0)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
+      <div class="row"><button class="btn" data-act="reseed">New canopy shape</button></div>`;
+    if (isLabel) h += `<div class="row"><label>Text size</label><input class="fld" id="oFS" type="number" min="0.5" step="0.25" value="${num(a.fontSize / PPF)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>`;
+    h += `<div class="row"><label>Rotation</label><input class="fld" id="oRot" type="number" step="1" value="${Math.round(a.angle)}"><span style="color:var(--dimmer);font-size:11px">°</span></div>
+      <div class="row"><label>Slant across</label><input type="range" id="oSkX" min="-60" max="60" step="1" value="${Math.round(a.skewX)}"></div>
+      <div class="row"><label>Slant down</label><input type="range" id="oSkY" min="-60" max="60" step="1" value="${Math.round(a.skewY)}"></div>
+      </div>`;
+
+    h += `<div class="sect"><h3>Position</h3>
+      <div class="row"><label>From left</label><input class="fld" id="oX" type="number" step="0.5" value="${num(a.left / PPF)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
+      <div class="row"><label>From top</label><input class="fld" id="oY" type="number" step="0.5" value="${num(a.top / PPF)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
+    </div>`;
+
+    if (!isLabel) {
+      const fillTex = a.ldTex, strokeTex = a.ldStrokeTex;
+      if (isPath) {
+        h += `<div class="sect"><h3>Surface</h3>${swatchGrid(strokeTex, 'stex', true)}
+          <div class="row" style="margin-top:9px"><label>Plain colour</label><input type="color" id="oStroke" value="${colorOf(a.stroke, '#9E9A90')}"></div>
+        </div>`;
+      } else {
+        h += `<div class="sect"><h3>Surface</h3>${swatchGrid(fillTex, 'ftex', true)}
+          <div class="row" style="margin-top:9px"><label>Plain colour</label><input type="color" id="oFill" value="${colorOf(a.fill, '#7B9B5C')}"></div>
+          <div class="row"><label>Opacity</label><input type="range" id="oOp" min="10" max="100" value="${Math.round(a.opacity * 100)}"></div>
+          <div class="row"><label>Outline</label><input type="color" id="oStroke" value="${colorOf(a.stroke, '#41503A')}">
+            <input class="fld" id="oSW" type="number" min="0" step="0.5" value="${num(a.strokeWidth)}" style="width:56px"></div>
+        </div>`;
+      }
+    } else {
+      h += `<div class="sect"><h3>Look</h3>
+        <div class="row"><label>Text colour</label><input type="color" id="oFill" value="${colorOf(a.fill, '#17212B')}"></div>
+        <div class="row"><label>Opacity</label><input type="range" id="oOp" min="10" max="100" value="${Math.round(a.opacity * 100)}"></div>
+      </div>`;
+    }
+  }
+
+  h += `<div class="sect"><h3>Actions</h3>`;
+  if (!isLabel) h += `<div class="row"><button class="btn" data-act="label">${myLabel ? 'Select its label' : 'Add a label'}</button></div>`;
+  h += `<div class="grid2" style="margin-bottom:7px">
+      <button class="btn" data-act="back">Send back</button><button class="btn" data-act="front">Bring forward</button></div>
+    <div class="grid2"><button class="btn" data-act="dup">Duplicate</button><button class="btn warn" data-act="del">Delete</button></div>
+  </div>` + plotSect;
+
+  insp.innerHTML = h;
+  $('#stSelWrap').style.display = '';
+  $('#stSel').textContent = `${a.ldName || KINDNAME[k] || 'shape'} · ${num(m.area, 0)} sq ft`;
+  wireInspector(a); wirePlot();
+}
+
+function colorOf(v, dflt) {
+  if (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) return v;
+  if (typeof v === 'string' && /^#[0-9a-f]{3}$/i.test(v))
+    return '#' + v.slice(1).split('').map(c => c + c).join('');
+  return dflt;
+}
+
+function wirePlot() {
+  const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+  on('#pW', 'change', e => { P.widthFt = clamp(+e.target.value || 10, 4, 4000); redraw(); saveSoon(); });
+  on('#pH', 'change', e => { P.heightFt = clamp(+e.target.value || 10, 4, 4000); redraw(); saveSoon(); });
+  on('#pG', 'change', e => { P.gridFt = clamp(+e.target.value || 3, .25, 50); redraw(); saveSoon(); });
+  on('#pReset', 'click', () => {
+    const b = objects().find(o => o.ldKind === 'boundary');
+    if (b) canvas.remove(b);
+    const nb = newBoundary(); canvas.add(nb); canvas.sendObjectToBack(nb);
+    pushHistory(); toast('Boundary reset to the plot outline.');
+  });
+}
+
+function wireInspector(a) {
+  const insp = $('#insp');
+  const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+  const done = (structural) => { a.setCoords(); canvas.requestRenderAll(); pushHistory(); if (structural) renderInspector(); };
+
+  insp.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+    const act = b.dataset.act, tex = b.dataset.tex;
+    const many = canvas.getActiveObjects();
+    switch (act) {
+      case 'lock': a.ldLock = !a.ldLock; applyLock(a); done(true); break;
+      case 'lockAll': many.forEach(o => { o.ldLock = true; applyLock(o); }); done(true); break;
+      case 'unlockAll': many.forEach(o => { o.ldLock = false; applyLock(o); }); done(true); break;
+      case 'edit': setEditMode(a, !a.ldEditing); break;
+      case 'smooth': a.ldSmooth = !a.ldSmooth; a.dirty = true; done(true); break;
+      case 'reseed': a.ldSeed = (Math.random() * 1e6) | 0; a.__s = null; a.dirty = true; done(false); break;
+      case 'ftex':
+        a.ldTex = tex || null;
+        a.set('fill', tex ? texPattern(tex) : colorOf(a.fill, '#7B9B5C'));
+        done(true); break;
+      case 'stex':
+        a.ldStrokeTex = tex || null;
+        a.set('stroke', tex ? texPattern(tex) : colorOf(a.stroke, '#9E9A90'));
+        done(true); break;
+      case 'back': many.forEach(o => canvas.sendObjectBackwards(o)); done(false); break;
+      case 'front': many.forEach(o => canvas.bringObjectForward(o)); done(false); break;
+      case 'dup': duplicate(); break;
+      case 'del': deleteSelection(); break;
+      case 'label': {
+        const ex = objects().find(o => o.ldLabelFor === a.ldId);
+        if (ex) { canvas.setActiveObject(ex); canvas.requestRenderAll(); return; }
+        const c = a.getCenterPoint();
+        const L = newLabel(c.x, c.y, a.ldName || KINDNAME[a.ldKind] || 'Label');
+        L.ldLabelFor = a.ldId;
+        canvas.add(L); canvas.setActiveObject(L); pushHistory();
+        break;
+      }
+    }
+  }));
+
+  on('#oName', 'change', e => { a.ldName = e.target.value; done(false); renderInspector(); });
+  on('#oRot', 'change', e => { a.rotate(+e.target.value || 0); done(false); });
+  on('#oSkX', 'input', e => { a.set('skewX', +e.target.value); a.setCoords(); canvas.requestRenderAll(); });
+  on('#oSkY', 'input', e => { a.set('skewY', +e.target.value); a.setCoords(); canvas.requestRenderAll(); });
+  on('#oSkX', 'change', () => done(false));
+  on('#oSkY', 'change', () => done(false));
+  on('#oX', 'change', e => { a.set('left', (+e.target.value || 0) * PPF); done(false); });
+  on('#oY', 'change', e => { a.set('top', (+e.target.value || 0) * PPF); done(false); });
+  on('#oPW', 'change', e => { a.set('strokeWidth', clamp(+e.target.value || 1, .25, 200) * PPF); a.ldWidthFt = +e.target.value; done(true); });
+  on('#oDia', 'change', e => { a.set({ radius: clamp(+e.target.value || 8, .5, 400) * PPF / 2, scaleX: 1, scaleY: 1 }); done(true); });
+  on('#oFS', 'change', e => { a.set('fontSize', clamp(+e.target.value || 2, .25, 60) * PPF); done(true); });
+  on('#oSW', 'change', e => { a.set('strokeWidth', clamp(+e.target.value || 0, 0, 200)); done(false); });
+  on('#oOp', 'input', e => { a.set('opacity', +e.target.value / 100); canvas.requestRenderAll(); });
+  on('#oOp', 'change', () => done(false));
+  on('#oFill', 'input', e => { a.ldTex = null; a.set('fill', e.target.value); canvas.requestRenderAll(); });
+  on('#oFill', 'change', () => done(true));
+  on('#oStroke', 'input', e => {
+    if (a.ldKind === 'path') a.ldStrokeTex = null;
+    a.set('stroke', e.target.value); canvas.requestRenderAll();
+  });
+  on('#oStroke', 'change', () => done(true));
+}
+
+
+/* ── 10. object actions ──────────────────────────────────────────────── */
+async function duplicate() {
+  const many = canvas.getActiveObjects();
+  if (!many.length) return;
+  canvas.discardActiveObject();
+  canvas.requestRenderAll();
+  const g = gridU(), made = [];
+  for (const o of many) {
+    const c = await o.clone(CUSTOM);
+    c.set({ left: c.left + g, top: c.top + g });
+    c.ldId = uid(); c.ldLabelFor = null; c.ldLock = false; c.ldEditing = false;
+    c.controls = defaultControls();
+    tag(c); applyTex(c);
+    canvas.add(c); made.push(c);
+  }
+  if (made.length === 1) canvas.setActiveObject(made[0]);
+  else canvas.setActiveObject(new F.ActiveSelection(made, { canvas }));
+  canvas.requestRenderAll(); pushHistory();
+}
+function deleteSelection() {
+  const many = canvas.getActiveObjects();
+  if (!many.length) return;
+  const ids = many.map(o => o.ldId);
+  const all = many.concat(objects().filter(o => o.ldLabelFor && ids.includes(o.ldLabelFor)));
+  canvas.discardActiveObject();
+  all.forEach(o => canvas.remove(o));
+  canvas.requestRenderAll(); pushHistory(); renderInspector();
+}
+function toggleLock() {
+  const many = canvas.getActiveObjects();
+  if (!many.length) return;
+  const to = !many[0].ldLock;
+  many.forEach(o => { o.ldLock = to; applyLock(o); });
+  canvas.requestRenderAll(); pushHistory(); renderInspector();
+  toast(to ? 'Locked.' : 'Unlocked.');
+}
+function nudge(dx, dy) {
+  const a = canvas.getActiveObject();
+  if (!a) return;
+  if (a._objects) {                       // a multi-selection moves as one
+    a.set({ left: a.left + dx, top: a.top + dy });
+  } else {
+    if (a.ldLock) return;
+    a.set({ left: a.left + dx, top: a.top + dy });
+    objects().forEach(L => {
+      if (L.ldLabelFor === a.ldId && !L.ldLock) { L.set({ left: L.left + dx, top: L.top + dy }); L.setCoords(); }
+    });
+  }
+  a.setCoords(); canvas.requestRenderAll(); pushHistory();
+}
+
+/* ── 11. canvas events ───────────────────────────────────────────────── */
+canvas.on('selection:created', renderInspector);
+canvas.on('selection:updated', e => {
+  (e.deselected || []).forEach(o => { if (o.ldEditing) setEditMode(o, false); });
+  renderInspector();
+});
+canvas.on('selection:cleared', e => {
+  (e.deselected || []).forEach(o => { if (o.ldEditing) setEditMode(o, false); });
+  renderInspector();
+});
+canvas.on('object:modified', () => { pushHistory(); renderInspector(); });
+canvas.on('object:moving', e => {
+  const o = e.target;
+  if (State.snap && !(e.e && e.e.altKey)) {
+    const g = gridU();
+    o.set({ left: Math.round(o.left / g) * g, top: Math.round(o.top / g) * g });
+  }
+  const dx = o.left - (o._pl == null ? o.left : o._pl);
+  const dy = o.top - (o._pt == null ? o.top : o._pt);
+  if (o.ldId && (dx || dy)) {
+    objects().forEach(L => {
+      if (L.ldLabelFor === o.ldId && !L.ldLock) { L.set({ left: L.left + dx, top: L.top + dy }); L.setCoords(); }
+    });
+  }
+  o._pl = o.left; o._pt = o.top;
+});
+['object:scaling', 'object:rotating'].forEach(ev => canvas.on(ev, () => {
+  const a = canvas.getActiveObject(); if (!a) return;
+  const m = metrics(a);
+  $('#stSelWrap').style.display = ''; $('#stSel').textContent = `${num(m.area, 0)} sq ft`;
+}));
+canvas.on('text:changed', () => saveSoon());
+canvas.on('object:added', e => { if (!e.target.ldGhost) saveSoon(); });
+canvas.on('object:removed', () => saveSoon());
+canvas.on('mouse:wheel', opt => {
+  setZoom(canvas.getZoom() * Math.pow(.999, opt.e.deltaY), { x: opt.e.offsetX, y: opt.e.offsetY });
+  opt.e.preventDefault(); opt.e.stopPropagation();
+});
+
+/* ── 12. history ─────────────────────────────────────────────────────── */
+let hist = [], hi = -1, histLock = false;
+const snapshot = () => JSON.stringify(canvas.toJSON());
+function pushHistoryNow() {
+  if (histLock) return;
+  const s = snapshot();
+  if (hist[hi] === s) return;
+  hist = hist.slice(0, hi + 1); hist.push(s);
+  if (hist.length > 60) hist.shift();
+  hi = hist.length - 1;
+  updateUndoUI(); saveSoon();
+}
+function pushHistory() {
+  if (histLock) return;
+  clearTimeout(pushHistory._t);
+  pushHistory._t = setTimeout(pushHistoryNow, 160);
+}
+function updateUndoUI() {
+  $('#btnUndo').disabled = hi <= 0;
+  $('#btnRedo').disabled = hi >= hist.length - 1;
+}
+async function restore(s) {
+  histLock = true;
+  canvas.discardActiveObject();
+  await canvas.loadFromJSON(s);
+  rehydrate();
+  histLock = false;
+  canvas.requestRenderAll(); renderInspector(); updateUndoUI(); saveSoon();
+}
+function rehydrate() {
+  objects().forEach(o => {
+    o.ldEditing = false;
+    o.controls = defaultControls();
+    tag(o); applyTex(o);
+    o.setCoords();
+  });
+}
+const undo = () => { if (hi > 0) { hi--; restore(hist[hi]); } };
+const redo = () => { if (hi < hist.length - 1) { hi++; restore(hist[hi]); } };
+
+/* ── 13. projects and storage ────────────────────────────────────────── */
+const LSK = 'plot.v1';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function loadStore() {
+  try { return JSON.parse(localStorage.getItem(LSK)) || { active: null, projects: {} }; }
+  catch (e) { return { active: null, projects: {} }; }
+}
+function saveStore(st) {
+  try { localStorage.setItem(LSK, JSON.stringify(st)); }
+  catch (e) { toast('Browser storage is full. Export your projects to free it up.'); }
+}
+function saveNow() {
+  if (!P) return;
+  const st = loadStore();
+  P.updatedAt = Date.now();
+  st.projects[P.id] = Object.assign({}, P, { scene: canvas.toJSON() });
+  st.active = P.id;
+  saveStore(st);
+  $('#stSaved').textContent = 'saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function saveSoon() {
+  clearTimeout(saveSoon._t);
+  $('#stSaved').textContent = 'saving…';
+  saveSoon._t = setTimeout(saveNow, 650);
+}
+
+async function openProject(id) {
+  const st = loadStore(), pr = st.projects[id];
+  if (!pr) return;
+  P = { id: pr.id, name: pr.name, widthFt: pr.widthFt, heightFt: pr.heightFt,
+        gridFt: pr.gridFt, createdAt: pr.createdAt, updatedAt: pr.updatedAt };
+  $('#projName').value = P.name;
+  histLock = true;
+  canvas.clear();
+  if (pr.scene) { try { await canvas.loadFromJSON(pr.scene); } catch (e) { console.error(e); toast('That project could not be read fully.'); } }
+  rehydrate();
+  if (!objects().some(o => o.ldKind === 'boundary')) {
+    const b = newBoundary(); canvas.add(b); canvas.sendObjectToBack(b);
+  }
+  histLock = false;
+  hist = []; hi = -1; pushHistoryNow();
+  st.active = id; saveStore(st);
+  setTool('select'); fitPlot(); renderInspector();
+}
+function createProject(name, w, h, g) {
+  const st = loadStore(), id = uid();
+  st.projects[id] = { id, name: name || 'Untitled plot', widthFt: w, heightFt: h, gridFt: g,
+                      createdAt: Date.now(), updatedAt: Date.now(), scene: null };
+  st.active = id; saveStore(st);
+  return openProject(id);
+}
+async function duplicateProject() {
+  if (!P) return;
+  saveNow();
+  const st = loadStore(), src = st.projects[P.id], id = uid();
+  st.projects[id] = Object.assign({}, src, { id, name: src.name + ' copy', createdAt: Date.now(), updatedAt: Date.now() });
+  saveStore(st);
+  await openProject(id);
+  toast('Copied to “' + st.projects[id].name + '”.');
+  renderProjects();
+}
+function deleteProject(id) {
+  const st = loadStore();
+  const nm = st.projects[id] && st.projects[id].name;
+  if (!confirm(`Delete “${nm}” for good? This cannot be undone.`)) return;
+  delete st.projects[id];
+  saveStore(st);
+  if (P && P.id === id) {
+    const next = Object.keys(st.projects)[0];
+    if (next) openProject(next); else { P = null; canvas.clear(); redraw(); openSizeModal('new', true); }
+  }
+  renderProjects();
+}
+function fmtDate(t) { return new Date(t || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
+function renderProjects() {
+  const st = loadStore();
+  const list = Object.values(st.projects).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const el = $('#projList');
+  el.innerHTML = (list.length ? list.map(pr => `
+    <div class="pline ${P && pr.id === P.id ? 'on' : ''}" data-open="${pr.id}">
+      <span class="nm">${esc(pr.name)}</span>
+      <span class="mt">${pr.widthFt}×${pr.heightFt} ft · ${fmtDate(pr.updatedAt)}</span>
+      <button class="x" data-del="${pr.id}" title="Delete this project">&#10005;</button>
+    </div>`).join('') : '<div class="empty">No projects yet. Start one below.</div>')
+    + `<button class="btn" id="pExportAll" style="margin-top:12px">Export all projects as one file</button>`;
+
+  el.querySelectorAll('[data-open]').forEach(r => r.addEventListener('click', e => {
+    if (e.target.dataset.del) return;
+    saveNow(); openProject(r.dataset.open); closeModal('#mProjects');
+  }));
+  el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation(); deleteProject(b.dataset.del);
+  }));
+  $('#pExportAll').addEventListener('click', () => {
+    saveNow();
+    download('plot-all-projects.json', JSON.stringify({ plot: 1, projects: Object.values(loadStore().projects) }, null, 1));
+  });
+}
+
+/* ── 14. files ───────────────────────────────────────────────────────── */
+function download(name, text, url) {
+  const a = document.createElement('a');
+  a.href = url || URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.download = name; a.click();
+  if (!url) setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function exportCurrent() {
+  if (!P) return;
+  saveNow();
+  const pr = loadStore().projects[P.id];
+  download(P.name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.plot.json',
+           JSON.stringify({ plot: 1, projects: [pr] }, null, 1));
+  toast('Exported.');
+}
+function importFile(file) {
+  const fr = new FileReader();
+  fr.onload = async () => {
+    let data;
+    try { data = JSON.parse(fr.result); }
+    catch (e) { toast("That file isn't readable JSON."); return; }
+    const incoming = data.projects || (data.id ? [data] : null);
+    if (!incoming) { toast("That file doesn't hold any Plot projects."); return; }
+    const st = loadStore();
+    let last = null;
+    incoming.forEach(pr => {
+      const id = st.projects[pr.id] ? uid() : (pr.id || uid());
+      st.projects[id] = Object.assign({}, pr, { id, updatedAt: Date.now() });
+      last = id;
+    });
+    saveStore(st);
+    if (last) await openProject(last);
+    renderProjects();
+    toast(`Imported ${incoming.length} project${incoming.length > 1 ? 's' : ''}.`);
+  };
+  fr.readAsText(file);
+}
+async function exportPNG() {
+  if (!P) return;
+  const W = P.widthFt * PPF, H = P.heightFt * PPF;
+  const s = clamp(2600 / Math.max(W, H), .35, 8);
+  const vtOld = canvas.viewportTransform.slice(), dw = canvas.getWidth(), dh = canvas.getHeight();
+  canvas.discardActiveObject();
+  canvas.setDimensions({ width: Math.round(W * s), height: Math.round(H * s) });
+  canvas.setViewportTransform([s, 0, 0, s, 0, 0]);
+  canvas.renderAll();
+  const url = canvas.toDataURL({ format: 'png', multiplier: 1 });
+  canvas.setDimensions({ width: dw, height: dh });
+  canvas.setViewportTransform(vtOld);
+  redraw();
+
+  const out = document.createElement('canvas');
+  out.width = Math.round(W * s); out.height = Math.round(H * s);
+  const c = out.getContext('2d');
+  c.fillStyle = PAPER; c.fillRect(0, 0, out.width, out.height);
+  if (State.showGrid) {
+    const step = P.gridFt * PPF * s;
+    for (let i = 0, x = 0; x <= out.width; i++, x = i * step) {
+      c.strokeStyle = i % 5 ? 'rgba(90,104,84,.20)' : 'rgba(74,88,68,.40)';
+      c.beginPath(); c.moveTo(Math.round(x) + .5, 0); c.lineTo(Math.round(x) + .5, out.height); c.stroke();
+    }
+    for (let i = 0, y = 0; y <= out.height; i++, y = i * step) {
+      c.strokeStyle = i % 5 ? 'rgba(90,104,84,.20)' : 'rgba(74,88,68,.40)';
+      c.beginPath(); c.moveTo(0, Math.round(y) + .5); c.lineTo(out.width, Math.round(y) + .5); c.stroke();
+    }
+  }
+  const img = new Image();
+  img.onload = () => {
+    c.drawImage(img, 0, 0);
+    c.fillStyle = 'rgba(14,21,28,.85)';
+    c.fillRect(0, out.height - 30, 250, 30);
+    c.fillStyle = '#fff'; c.font = '500 14px "IBM Plex Mono",monospace';
+    c.fillText(`${P.name} — ${P.widthFt} × ${P.heightFt} ft`, 10, out.height - 11);
+    out.toBlob(b => download(P.name.replace(/\s+/g, '-').toLowerCase() + '.png', null, URL.createObjectURL(b)));
+    toast('PNG saved.');
+  };
+  img.src = url;
+}
+
+
+/* ── 15. chrome wiring ───────────────────────────────────────────────── */
+function openModal(sel, forced) {
+  const m = $(sel); m.classList.add('show');
+  m.dataset.forced = forced ? '1' : '';
+  const first = Array.from(m.querySelectorAll('input')).find(i => i.offsetParent !== null);
+  if (first) setTimeout(() => { first.focus(); first.select && first.select(); }, 40);
+}
+function closeModal(sel) {
+  const m = $(sel);
+  if (m.dataset.forced === '1') return;
+  m.classList.remove('show');
+}
+$$('.veil').forEach(v => {
+  v.addEventListener('click', e => { if (e.target === v) closeModal('#' + v.id); });
+  v.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal('#' + v.id)));
+});
+
+let sizeMode = 'new';
+function openSizeModal(mode, forced) {
+  sizeMode = mode;
+  $('#nTitle').textContent = mode === 'new' ? 'New project' : 'Plot dimensions';
+  $('#nSub').textContent = mode === 'new' ? 'set the plot size' : 'this changes the drawing area only';
+  $('#nGo').textContent = mode === 'new' ? 'Create plot' : 'Apply';
+  $('#nName').parentElement.style.display = mode === 'new' ? '' : 'none';
+  if (mode === 'edit' && P) { $('#nW').value = P.widthFt; $('#nH').value = P.heightFt; $('#nG').value = P.gridFt; }
+  else { $('#nName').value = 'Untitled plot'; }
+  openModal('#mNew', forced);
+}
+$('#nGo').addEventListener('click', async () => {
+  const w = clamp(+$('#nW').value || 60, 4, 4000);
+  const h = clamp(+$('#nH').value || 40, 4, 4000);
+  const g = clamp(+$('#nG').value || 3, .25, 50);
+  const m = $('#mNew'); m.dataset.forced = ''; m.classList.remove('show');
+  if (sizeMode === 'new') {
+    await createProject($('#nName').value.trim() || 'Untitled plot', w, h, g);
+    toast('Plot created. Pick a tool to start drawing.');
+  } else {
+    P.widthFt = w; P.heightFt = h; P.gridFt = g;
+    redraw(); renderInspector(); saveSoon();
+  }
+});
+
+$('#btnProjects').addEventListener('click', () => { saveNow(); renderProjects(); openModal('#mProjects'); });
+$('#pNew').addEventListener('click', () => { closeModal('#mProjects'); openSizeModal('new'); });
+$('#pDuplicate').addEventListener('click', duplicateProject);
+$('#btnSize').addEventListener('click', () => openSizeModal('edit'));
+$('#btnHelp').addEventListener('click', () => openModal('#mHelp'));
+$('#btnInsp').addEventListener('click', () => $('#insp').classList.toggle('open'));
+$('#btnUndo').addEventListener('click', undo);
+$('#btnRedo').addEventListener('click', redo);
+$('#btnFit').addEventListener('click', fitPlot);
+$('#zIn').addEventListener('click', () => setZoom(canvas.getZoom() * 1.25, { x: canvas.getWidth() / 2, y: canvas.getHeight() / 2 }));
+$('#zOut').addEventListener('click', () => setZoom(canvas.getZoom() / 1.25, { x: canvas.getWidth() / 2, y: canvas.getHeight() / 2 }));
+$('#btnExport').addEventListener('click', exportCurrent);
+$('#btnPng').addEventListener('click', exportPNG);
+$('#btnImport').addEventListener('click', () => $('#fileIn').click());
+$('#fileIn').addEventListener('change', e => { if (e.target.files[0]) importFile(e.target.files[0]); e.target.value = ''; });
+
+function setSnap(v) {
+  State.snap = v;
+  $('#btnSnap').textContent = v ? 'Snap on' : 'Snap off';
+  $('#btnSnap').classList.toggle('key', v);
+  syncViewUI();
+}
+function setGridVis(v) {
+  State.showGrid = v;
+  $('#btnGridToggle').textContent = v ? 'Grid on' : 'Grid off';
+  $('#btnGridToggle').classList.toggle('key', v);
+  redraw();
+}
+$('#btnSnap').addEventListener('click', () => setSnap(!State.snap));
+$('#btnGridToggle').addEventListener('click', () => setGridVis(!State.showGrid));
+$('#projName').addEventListener('change', e => {
+  if (!P) return;
+  P.name = e.target.value.trim() || 'Untitled plot';
+  e.target.value = P.name; saveNow();
+});
+$$('.tool').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+
+/* ── 16. keyboard ────────────────────────────────────────────────────── */
+function typing() {
+  const el = document.activeElement;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return true;
+  const a = canvas.getActiveObject();
+  return !!(a && a.isEditing);
+}
+const TOOLKEY = { v: 'select', h: 'pan', r: 'rect', o: 'ellipse', y: 'tri', p: 'poly', w: 'path', t: 'tree', x: 'label', m: 'measure' };
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !typing()) {
+    State.space = true; canvas.setCursor('grab');
+    if (!State.panning) e.preventDefault();
+  }
+  const modal = $$('.veil').some(v => v.classList.contains('show'));
+  if (e.key === 'Escape') {
+    if (modal) { $$('.veil').forEach(v => closeModal('#' + v.id)); return; }
+    if (draft || measure) { cancelDraft(); return; }
+    const a = canvas.getActiveObject();
+    if (a && a.ldEditing) { setEditMode(a, false); return; }
+    canvas.discardActiveObject(); canvas.requestRenderAll(); return;
+  }
+  if (modal || typing()) return;
+
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+
+  if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && k === 'y') { e.preventDefault(); redo(); return; }
+  if (mod && k === 's') { e.preventDefault(); saveNow(); toast('Saved.'); return; }
+  if (mod && k === 'd') { e.preventDefault(); duplicate(); return; }
+  if (mod && k === 'a') {
+    e.preventDefault(); canvas.discardActiveObject();
+    const all = objects().filter(o => !o.ldLock);
+    if (all.length) canvas.setActiveObject(new F.ActiveSelection(all, { canvas }));
+    canvas.requestRenderAll(); return;
+  }
+  if (mod) return;
+
+  if (e.key === 'Enter') { if (draft) { e.preventDefault(); commitDraft(); } return; }
+  if (e.key === 'Backspace' && draft && draft.pts) {
+    e.preventDefault();
+    draft.pts.pop();
+    if (!draft.pts.length) cancelDraft(); else updateDraftGhost();
+    return;
+  }
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelection(); return; }
+
+  if (e.key.startsWith('Arrow')) {
+    e.preventDefault();
+    const s = gridU() * (e.shiftKey ? 10 : 1);
+    nudge(e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0,
+          e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0);
+    return;
+  }
+  if (k === '[') { canvas.getActiveObjects().forEach(o => canvas.sendObjectBackwards(o)); canvas.requestRenderAll(); pushHistory(); return; }
+  if (k === ']') { canvas.getActiveObjects().forEach(o => canvas.bringObjectForward(o)); canvas.requestRenderAll(); pushHistory(); return; }
+  if (k === 'f') { fitPlot(); return; }
+  if (k === 'g') { setSnap(!State.snap); toast(State.snap ? 'Snapping to the grid.' : 'Snapping off.'); return; }
+  if (k === 'e') {
+    const a = canvas.getActiveObject();
+    if (a && a.points) setEditMode(a, !a.ldEditing);
+    return;
+  }
+  if (k === 'l') { toggleLock(); return; }
+  if (TOOLKEY[k]) { setTool(TOOLKEY[k]); return; }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') { State.space = false; canvas.setCursor(State.tool === 'pan' ? 'grab' : 'default'); }
+});
+window.addEventListener('beforeunload', () => { if (P) saveNow(); });
+
+/* ── 17. boot ────────────────────────────────────────────────────────── */
+window.addEventListener('resize', resize);
+try { new ResizeObserver(() => resize()).observe($('#field')); } catch (e) {}
+
+(function boot() {
+  resize();
+  setSnap(true); setGridVis(true); setTool('select');
+  updateUndoUI();
+  const st = loadStore(), ids = Object.keys(st.projects);
+  if (st.active && st.projects[st.active]) openProject(st.active);
+  else if (ids.length) openProject(ids[0]);
+  else {
+    $('#nName').value = 'Back garden';
+    openSizeModal('new', true);
+  }
+  renderInspector();
+})();
+
+</script>
+</body>
+</html>
