@@ -191,7 +191,9 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
 #v3dBar .spacer{flex:1 1 auto}
 #v3dCount{font-family:var(--mono);font-size:10px;color:var(--dimmer);padding-right:9px;white-space:nowrap}
 .sunlbl{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--dim)}
-.sunlbl input{width:96px;accent-color:var(--mark)}
+.sunlbl input{width:150px;accent-color:var(--mark)}
+.clockval{font-family:var(--mono);font-size:11px;color:var(--txt);white-space:nowrap;padding:0 3px}
+.clockval.dim{color:var(--dimmer)}
 #v3dHint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
   background:rgba(14,21,28,.72);border-radius:var(--r);padding:5px 12px;
   font-size:12px;color:#DCE6EF;pointer-events:none}
@@ -259,13 +261,19 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
     <svg viewBox="0 0 24 24"><path d="M4 9l6-5 10 4-2 11-11 1z"/><circle cx="4" cy="9" r="1.6" fill="currentColor"/><circle cx="20" cy="8" r="1.6" fill="currentColor"/></svg><span class="kbd">P</span></button>
   <button class="tool" data-tool="path" title="Pathway — click each turn, Enter to finish — W">
     <svg viewBox="0 0 24 24"><path d="M6 20c0-5 3-5 3-9S5 7 6 4"/><path d="M14 20c0-5 4-5 4-9s-4-4-3-7"/></svg><span class="kbd">W</span></button>
+  <button class="tool" data-tool="building" title="Building footprint — C">
+    <svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11"/><path d="M9.5 20v-6h5v6"/><path d="M2.5 20h19"/></svg><span class="kbd">C</span></button>
   <button class="tool" data-tool="line" title="Straight line — N">
     <svg viewBox="0 0 24 24"><path d="M4 20L20 4"/><circle cx="4" cy="20" r="1.7" fill="currentColor"/><circle cx="20" cy="4" r="1.7" fill="currentColor"/></svg><span class="kbd">N</span></button>
   <button class="tool" data-tool="arrow" title="Arrow — A">
     <svg viewBox="0 0 24 24"><path d="M4 20L19 5"/><path d="M12 5h7v7"/></svg><span class="kbd">A</span></button>
   <div class="railgap"></div>
-  <button class="tool" data-tool="tree" title="Place a tree — T">
-    <svg viewBox="0 0 24 24"><path d="M12 15v5"/><path d="M12 3.5c3.6 0 6.5 2.7 6.5 6s-2.9 5.8-6.5 5.8S5.5 12.8 5.5 9.5s2.9-6 6.5-6z"/></svg><span class="kbd">T</span></button>
+  <button class="tool" data-tool="tree" title="Spreading tree — T">
+    <svg viewBox="0 0 24 24"><path d="M12 16v4"/><path d="M12 4c4.4 0 8 2.6 8 5.9S16.4 16 12 16 4 13.2 4 9.9 7.6 4 12 4z"/></svg><span class="kbd">T</span></button>
+  <button class="tool" data-tool="treeTall" title="Tall narrow tree — U">
+    <svg viewBox="0 0 24 24"><path d="M12 18v3"/><path d="M12 2c2.6 0 4.3 2.8 4.3 8S14.6 18 12 18 7.7 15.2 7.7 10 9.4 2 12 2z"/></svg><span class="kbd">U</span></button>
+  <button class="tool" data-tool="treeShrub" title="Shrub — S">
+    <svg viewBox="0 0 24 24"><path d="M6 19c-1.7 0-3-1.4-3-3.1 0-1.5 1-2.7 2.4-3C5.7 10.2 7.9 8.4 10.4 8.4c1.9 0 3.6 1 4.5 2.6.5-.2 1-.3 1.6-.3 2.5 0 4.5 2 4.5 4.5S19 19 16.5 19z"/></svg><span class="kbd">S</span></button>
   <button class="tool" data-tool="label" title="Label — X">
     <svg viewBox="0 0 24 24"><path d="M5 7V5h14v2M12 5v14M9 19h6"/></svg><span class="kbd">X</span></button>
   <button class="tool" data-tool="measure" title="Measure a distance — M">
@@ -334,6 +342,8 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
     <div class="k"><kbd>P</kbd></div><div>Area — click each corner</div>
     <div class="k"><kbd>W</kbd></div><div>Pathway — click each turn</div>
     <div class="k"><kbd>N</kbd> <kbd>A</kbd></div><div>Line, arrow</div>
+    <div class="k"><kbd>C</kbd></div><div>Building footprint</div>
+    <div class="k"><kbd>U</kbd> <kbd>S</kbd></div><div>Tall tree, shrub</div>
     <div class="k"><kbd>T</kbd> <kbd>X</kbd> <kbd>M</kbd></div><div>Tree, label, measure</div>
     <div class="k"><kbd>B</kbd></div><div>Library — plants, surfaces, irrigation</div>
     <div class="k"><kbd>I</kbd></div><div>Bring in an image to trace over</div>
@@ -376,7 +386,10 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
     <button class="tb" data-view="e">From east</button>
     <button class="tb" data-view="w">From west</button>
     <span class="sep"></span>
-    <label class="sunlbl">Sun<input type="range" id="v3dSun" min="0" max="360" value="135"></label>
+    <button class="tb" id="v3dPlay" title="Run the day">&#9654;</button>
+    <label class="sunlbl"><input type="range" id="v3dClock" min="0" max="1439" step="5" value="720"></label>
+    <span class="clockval" id="v3dTime">12:00 pm</span>
+    <span class="clockval dim" id="v3dSunInfo"></span>
     <button class="tb key" id="v3dShadow">Shadows on</button>
     <button class="tb" id="v3dRebuild">Rebuild</button>
     <span class="spacer"></span>
@@ -660,7 +673,21 @@ function renderPoly(obj, ctx, closed) {
     ctx.lineTo(p[n - 1].x - ox, p[n - 1].y - oy);
   }
   obj._renderPaintInOrder(ctx);
+  if (closed) strokeEdge(obj, ctx);
   strokeDouble(obj, ctx);
+}
+function strokeEdge(o, ctx) {
+  const e = o.ldEdge;
+  if (!e || e === 'none') return;
+  const w = Math.max(1.2, (o.ldEdgeWFt || .33) * PPF);
+  ctx.save();
+  ctx.scale(1 / Math.abs(o.scaleX || 1), 1 / Math.abs(o.scaleY || 1));
+  ctx.lineWidth = w;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = o.ldEdgeColor || (EDGES[e] || {}).col || '#A8A296';
+  ctx.setLineDash(e === 'fence' ? [w * 1.4, w * 1.1] : []);
+  ctx.stroke();
+  ctx.restore();
 }
 
 class LandPoly extends F.Polygon {
@@ -880,7 +907,16 @@ const CUSTOM = ['ldId', 'ldKind', 'ldTex', 'ldStrokeTex', 'ldFillColor', 'ldStro
                 'ldLock', 'ldSmooth', 'ldName', 'ldLabelFor', 'ldSeed', 'ldWidthFt',
                 'ldArrow', 'ldArc', 'ldSymbol', 'ldPreset', 'ldLineStyle', 'ldSpecies',
                 'ldHeightFt', 'ldWit', 'ldTxt', 'ldText', 'ldDimFor', 'ldDimIdx',
-                'ldFontFt', 'ldBloomColor', 'ldInnerColor'];
+                'ldFontFt', 'ldBloomColor', 'ldInnerColor',
+                'ldTreeHtFt', 'ldEdge', 'ldEdgeHtFt', 'ldEdgeWFt', 'ldEdgeColor', 'ldRoofColor'];
+
+/* What can sit around the rim of a shape. Heights and widths are in feet. */
+const EDGES = {
+  none:  { n: 'Nothing',      h: 0,   w: 0 },
+  kerb:  { n: 'Edging kerb',  h: 0.5, w: 0.33, col: '#A8A296' },
+  wall:  { n: 'Wall',         h: 6,   w: 0.75, col: '#B4AEA2' },
+  fence: { n: 'Steel fence',  h: 5,   w: 0.15, col: '#6E7781' }
+};
 const _toObject = FObject.prototype.toObject;
 FObject.prototype.toObject = function (extra) {
   const o = _toObject.call(this, [...(extra || []), ...CUSTOM]);
@@ -1068,10 +1104,16 @@ const D = {
   path:    { stex: 'flagstone', stroke: '#9E9A90', widthFt: 4, smooth: true, op: 1, ls: 'solid', freehand: false, name: 'Pathway' },
   line:    { stroke: '#2F3B2B', sw: 2, smooth: false, arrow: false, ls: 'solid', op: 1, name: 'Line' },
   arrow:   { stroke: '#FF2E88', sw: 2.5, smooth: false, arrow: true, ls: 'solid', op: 1, name: 'Arrow' },
-  tree:    { fill: '#5E7F45', stroke: '#33492A', diaFt: 16, op: 1, species: 'broadleaf', name: 'Tree' },
+  tree:      { fill: '#5E7F45', stroke: '#33492A', diaFt: 24, htFt: 0,  op: 1, species: 'broadleaf', name: 'Tree' },
+  treeTall:  { fill: '#3D5F35', stroke: '#2C4527', diaFt: 7,  htFt: 26, op: 1, species: 'columnar',  name: 'Tall tree' },
+  treeShrub: { fill: '#6E8F52', stroke: '#3B5730', diaFt: 4,  htFt: 3.5, op: 1, species: 'shrub',    name: 'Shrub' },
+  building:  { tex: 'concrete', fill: '#B9B4AA', stroke: '#4A463F', sw: 2, smooth: false, op: 1,
+               ls: 'solid', ht: 12, roof: '#8F8A80', name: 'Building' },
   label:   { fill: '#17212B', sizeFt: 2, op: 1, name: 'Label' }
 };
-const DRAWTOOLS = ['rect', 'ellipse', 'tri', 'poly', 'path', 'line', 'arrow', 'tree', 'label'];
+const TREETOOLS = ['tree', 'treeTall', 'treeShrub'];
+const DRAWTOOLS = ['rect', 'ellipse', 'tri', 'poly', 'building', 'path', 'line', 'arrow',
+                   'tree', 'treeTall', 'treeShrub', 'label'];
 
 function dressControls(o) {
   o.set({
@@ -1178,6 +1220,25 @@ function drawGrid() {
   gctx.strokeStyle = '#4A5844'; gctx.lineWidth = 1.5;
   gctx.strokeRect(tx - .5, ty - .5, pw + 1, ph + 1);
   drawScaleBar(W, H, z);
+  drawCompass(W, H);
+}
+
+function drawCompass(W, H) {
+  const a = -(P.northDeg || 0) * Math.PI / 180, x = W - 40, y = 42, r = 15;
+  gctx.save();
+  gctx.fillStyle = 'rgba(14,21,28,.80)';
+  gctx.beginPath(); gctx.arc(x, y, r + 7, 0, Math.PI * 2); gctx.fill();
+  gctx.translate(x, y); gctx.rotate(a);
+  gctx.beginPath();
+  gctx.moveTo(0, -r); gctx.lineTo(r * .42, r * .5); gctx.lineTo(0, r * .22);
+  gctx.closePath(); gctx.fillStyle = MARK; gctx.fill();
+  gctx.beginPath();
+  gctx.moveTo(0, -r); gctx.lineTo(-r * .42, r * .5); gctx.lineTo(0, r * .22);
+  gctx.closePath(); gctx.fillStyle = '#E7EDF3'; gctx.fill();
+  gctx.font = '600 9px "IBM Plex Mono",monospace';
+  gctx.fillStyle = '#E7EDF3'; gctx.textAlign = 'center';
+  gctx.fillText('N', 0, -r - 3);
+  gctx.restore();
 }
 
 /* The scale bar: pick a round number of feet that lands near 120px. */
@@ -1283,14 +1344,17 @@ function shapePoints(kind, x, y, w, h) {
 }
 
 function newArea(pts, key, extra) {
-  const d = D[key || 'poly'];
+  const d = D[key || 'poly'] || D.poly;
   const o = new LandPoly(pts, Object.assign({
     fill: '', stroke: d.stroke, strokeWidth: d.sw, strokeUniform: true, opacity: d.op,
     exactBoundingBox: true, objectCaching: false,
     ldTex: d.tex, ldFillColor: d.fill, ldStrokeColor: d.stroke,
-    ldSmooth: !!d.smooth, ldLineStyle: d.ls || 'solid', ldHeightFt: d.ht || 0, ldName: d.name
+    ldSmooth: !!d.smooth, ldLineStyle: d.ls || 'solid', ldHeightFt: d.ht || 0,
+    ldRoofColor: d.roof || null, ldEdge: d.edge || 'none',
+    ldEdgeHtFt: d.edgeH || 0, ldEdgeWFt: d.edgeW || 0, ldEdgeColor: d.edgeC || null,
+    ldName: d.name
   }, extra || {}));
-  tag(o, 'area'); paint(o); return o;
+  tag(o, key === 'building' ? 'building' : 'area'); paint(o); return o;
 }
 function newPathway(pts, extra) {
   const d = D.path;
@@ -1314,16 +1378,23 @@ function newLine(pts, key, extra) {
   }, extra || {}));
   tag(o, 'line'); paint(o); return o;
 }
-function newTree(cx, cy, diaFt, extra) {
-  const d = D.tree;
+function newTree(cx, cy, diaFt, extra, key) {
+  const d = D[key || 'tree'] || D.tree;
   const o = new Tree(Object.assign({
     left: cx, top: cy, originX: 'center', originY: 'center',
     radius: (diaFt || d.diaFt) * PPF / 2, stroke: d.stroke, strokeWidth: 1.5,
     strokeUniform: true, objectCaching: false, opacity: d.op,
     ldFillColor: d.fill, ldStrokeColor: d.stroke, ldSpecies: d.species || 'broadleaf',
-    ldSeed: (Math.random() * 1e6) | 0, ldName: d.name
+    ldTreeHtFt: d.htFt || 0, ldSeed: (Math.random() * 1e6) | 0, ldName: d.name
   }, extra || {}));
   tag(o, 'tree'); paint(o); return o;
+}
+/* 0 means "work it out from the species", so a 30 ft mango stays wide and a
+   False Ashoka of the same spread stays tall. */
+function treeHeight(o) {
+  if (o.ldTreeHtFt > 0) return o.ldTreeHtFt;
+  const sp = SPECIES[o.ldSpecies || 'broadleaf'] || SPECIES.broadleaf;
+  return (o.radius * 2 * Math.abs(o.scaleX) / PPF) * sp.h;
 }
 function newSprinkler(cx, cy, throwFt, arcDeg, extra) {
   const o = new Sprinkler(Object.assign({
@@ -1484,6 +1555,9 @@ function setTool(t) {
       ? `Set the width first, then drag to draw a ${D.path.widthFt} ft path.`
       : 'Click each turn of the path. <b>Enter</b> to finish, <b>Backspace</b> to step back, <b>Esc</b> to cancel.',
     rect: 'Drag out a rectangle.', ellipse: 'Drag out an ellipse.', tri: 'Drag out a triangle.',
+    building: `Drag out the footprint. It'll stand ${D.building.ht} ft tall in 3D.`,
+    treeTall: 'Click to plant a tall, narrow tree.',
+    treeShrub: 'Click to plant a shrub.',
     measure: 'Drag between two points. It leaves a dimension you can move or delete.',
     line: 'Click each corner. <b>Enter</b> to finish, <b>Esc</b> to cancel.',
     arrow: 'Click the start, then the tip. <b>Enter</b> to finish.',
@@ -1556,7 +1630,7 @@ canvas.on('mouse:down', opt => {
   }
   const x = snapU(sp.x), y = snapU(sp.y);
 
-  if (t === 'rect' || t === 'ellipse' || t === 'tri') {
+  if (t === 'rect' || t === 'ellipse' || t === 'tri' || t === 'building') {
     draft = { kind: t, x, y, drag: true, temp: ghost(shapePoints(t, x, y, gridU(), gridU()), true) };
     canvas.add(draft.temp);
   } else if (t === 'path' && D.path.freehand) {
@@ -1573,8 +1647,8 @@ canvas.on('mouse:down', opt => {
     updateDraftGhost({ x, y });
   } else if (t === 'library' && State.stamp) {
     placeStamp(State.stamp, x, y);
-  } else if (t === 'tree') {
-    const o = newTree(x, y, D.tree.diaFt);
+  } else if (TREETOOLS.includes(t)) {
+    const o = newTree(x, y, D[t].diaFt, null, t);
     canvas.add(o); canvas.setActiveObject(o); setTool('select'); pushHistory();
   } else if (t === 'label') {
     const o = newLabel(x, y, 'Label');
@@ -1735,10 +1809,11 @@ const num = (v, d) => (Math.round(v * Math.pow(10, d || 1)) / Math.pow(10, d || 
 
 /* ── 9. inspector ────────────────────────────────────────────────────── */
 const TEXKEYS = Object.keys(TEX);
-const KINDNAME = { area: 'Area', path: 'Pathway', line: 'Line', tree: 'Tree', label: 'Label',
+const KINDNAME = { area: 'Area', building: 'Building', path: 'Pathway', line: 'Line', tree: 'Tree', label: 'Label',
                    boundary: 'Boundary', head: 'Sprinkler', marker: 'Fitting', trace: 'Traced image' };
 const TOOLNAME = { rect: 'rectangle', ellipse: 'ellipse', tri: 'triangle', poly: 'area',
-                   path: 'pathway', line: 'line', arrow: 'arrow', tree: 'tree', label: 'label' };
+                   building: 'building', path: 'pathway', line: 'line', arrow: 'arrow',
+                   tree: 'spreading tree', treeTall: 'tall tree', treeShrub: 'shrub', label: 'label' };
 const NONE_SW = 'background:repeating-linear-gradient(45deg,#1C2732 0 5px,#151E27 5px 10px)';
 
 /* Fill and stroke both use this: transparent, a plain colour, or a texture. */
@@ -1760,10 +1835,13 @@ const lsOptions = cur => Object.keys(LINESTYLES).map(k =>
 const spOptions = cur => SPECIESKEYS.map(k =>
   `<option value="${k}" ${(cur || 'broadleaf') === k ? 'selected' : ''}>${SPECIES[k].n}</option>`).join('');
 const lsRow = a => `<div class="row"><label>Line style</label><select class="fld" id="oLS">${lsOptions(a.ldLineStyle)}</select></div>`;
+const edgeOptions = cur => Object.keys(EDGES).map(k =>
+  `<option value="${k}" ${(cur || 'none') === k ? 'selected' : ''}>${EDGES[k].n}</option>`).join('');
 
 /* ── the panel shown while a drawing tool is armed ─────────────────────── */
 function toolPanel(t) {
-  const d = D[t], area = ['rect', 'ellipse', 'tri', 'poly'].includes(t), isLine = t === 'line' || t === 'arrow';
+  const d = D[t], area = ['rect', 'ellipse', 'tri', 'poly', 'building'].includes(t),
+        isLine = t === 'line' || t === 'arrow', isTree = TREETOOLS.includes(t);
   let h = `<div class="sect">
     <div class="row" style="margin-bottom:9px"><span class="chip">New ${TOOLNAME[t]}</span></div>
     <div style="font-size:12px;color:var(--dimmer);line-height:1.45">Set it up here, then draw. Everything you draw with this tool picks these up.</div>
@@ -1777,7 +1855,14 @@ function toolPanel(t) {
         <input class="fld" id="dSW" type="number" min="0" step="0.5" value="${d.sw}" style="width:56px"></div>
       <div class="row"><label>Line style</label><select class="fld" id="dLS">${lsOptions(d.ls)}</select></div>
       <div class="row"><button class="btn ${d.smooth ? 'on' : ''}" data-act="dSmooth">${d.smooth ? 'Curved edges' : 'Straight edges'}</button></div>
-      <div class="row"><label>Opacity</label><input type="range" id="dOp" min="10" max="100" value="${Math.round(d.op * 100)}"></div></div>`;
+      <div class="row"><label>Opacity</label><input type="range" id="dOp" min="10" max="100" value="${Math.round(d.op * 100)}"></div></div>
+      <div class="sect"><h3>Standing up in 3D</h3>
+      <div class="row"><label>Height</label><input class="fld" id="dHt" type="number" min="0" step="0.5" value="${d.ht || 0}">${ftLbl}</div>
+      <div class="row"><label>Around the rim</label><select class="fld" id="dEdge">${edgeOptions(d.edge)}</select></div>
+      ${(d.edge && d.edge !== 'none') ? `
+        <div class="row"><label>Rim height</label><input class="fld" id="dEdgeH" type="number" min="0.1" step="0.25" value="${d.edgeH || EDGES[d.edge].h}">${ftLbl}</div>
+        <div class="row"><label>Rim width</label><input class="fld" id="dEdgeW" type="number" min="0.05" step="0.05" value="${d.edgeW || EDGES[d.edge].w}">${ftLbl}</div>` : ''}
+      </div>`;
   } else if (t === 'path') {
     h += `<div class="sect"><h3>Surface</h3>${swatchGrid(d.stex, d.stroke, 'dStex')}
       <div class="row" style="margin-top:9px"><label>Colour</label><input type="color" id="dStroke" value="${d.stroke}"></div>
@@ -1796,12 +1881,17 @@ function toolPanel(t) {
       <div class="row"><button class="btn ${d.arrow ? 'on' : ''}" data-act="dArrow">${d.arrow ? 'Arrowhead' : 'No head'}</button></div>
       <div class="row"><button class="btn ${d.smooth ? 'on' : ''}" data-act="dSmooth">${d.smooth ? 'Curved' : 'Straight'}</button></div>
       <div class="row"><label>Opacity</label><input type="range" id="dOp" min="10" max="100" value="${Math.round(d.op * 100)}"></div></div>`;
-  } else if (t === 'tree') {
-    h += `<div class="sect"><h3>Canopy</h3>
-      <div class="row"><label>Colour</label><input type="color" id="dFill" value="${d.fill}"></div>
-      <div class="row"><label>Outline</label><input type="color" id="dStroke" value="${d.stroke}"></div>
-      <div class="row"><label>Diameter</label><input class="fld" id="dDia" type="number" min="1" step="1" value="${d.diaFt}">${ftLbl}</div>
-      <div class="row"><label>Kind</label><select class="fld" id="dSpecies">${spOptions(d.species)}</select></div></div>`;
+  } else if (isTree) {
+    h += `<div class="sect"><h3>Size</h3>
+      <div class="row"><label>Spread</label><input class="fld" id="dDia" type="number" min="0.5" step="0.5" value="${d.diaFt}">${ftLbl}</div>
+      <div class="row"><label>Height</label><input class="fld" id="dHtFt" type="number" min="0" step="0.5" value="${d.htFt || 0}">${ftLbl}</div>
+      <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">
+        Height 0 lets the species decide. Set both to make a 30 ft mango wide and a False Ashoka narrow.</div>
+      <div class="row" style="margin-top:7px"><label>Kind</label><select class="fld" id="dSpecies">${spOptions(d.species)}</select></div>
+      </div>
+      <div class="sect"><h3>Colour</h3>
+      <div class="row"><label>Leaves</label><input type="color" id="dFill" value="${d.fill}"></div>
+      <div class="row"><label>Outline</label><input type="color" id="dStroke" value="${d.stroke}"></div></div>`;
   } else if (t === 'label') {
     h += `<div class="sect"><h3>Text</h3>
       <div class="row"><label>Colour</label><input type="color" id="dFill" value="${d.fill}"></div>
@@ -1850,6 +1940,29 @@ function renderInspector() {
       <div class="row"><label>Grid spacing</label><input class="fld" id="pG" type="number" min="0.25" step="0.25" value="${P.gridFt}">${ftLbl}</div>
       <div class="row"><button class="btn" id="pReset">Reset boundary to plot</button></div>
       <div class="readout"><span>Plot area</span><b>${num(P.widthFt * P.heightFt, 0)} sq ft</b></div>
+    </div>
+    <div class="sect">
+      <h3>Which way it faces</h3>
+      <div class="row"><label>Up the screen is</label><input class="fld" id="pNorth" type="number" step="5" value="${Math.round(P.northDeg || 0)}"><span style="color:var(--dimmer);font-size:11px">&deg;</span></div>
+      <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">
+        Compass bearing of the top of the plan. 0 means up is north, 90 means up is east.
+        This is what the 3D sun uses, so get it right and the shadows are real.</div>
+      <div class="grid2" style="margin-top:7px">
+        <button class="btn ${(P.northDeg||0)%360===0?'on':''}" data-act="north0">Up = N</button>
+        <button class="btn ${(P.northDeg||0)%360===90?'on':''}" data-act="north90">Up = E</button>
+      </div>
+      <div class="grid2" style="margin-top:6px">
+        <button class="btn ${(P.northDeg||0)%360===180?'on':''}" data-act="north180">Up = S</button>
+        <button class="btn ${(P.northDeg||0)%360===270?'on':''}" data-act="north270">Up = W</button>
+      </div>
+    </div>
+    <div class="sect">
+      <h3>Where it is</h3>
+      <div class="row"><label>Latitude</label><input class="fld" id="pLat" type="number" step="0.1" value="${P.lat}"></div>
+      <div class="row"><label>Longitude</label><input class="fld" id="pLon" type="number" step="0.1" value="${P.lon}"></div>
+      <div class="row"><label>Date</label><input class="fld" id="pDate" type="date" value="${P.dateISO}" style="width:126px"></div>
+      <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">
+        Sets where the sun rises and how high it climbs. Change the date to see winter shade against summer shade.</div>
     </div>` : '';
 
   if (State.tool === 'library') { insp.innerHTML = libraryPanel(); wireAll(null); return; }
@@ -1962,10 +2075,12 @@ function renderInspector() {
     if (isLine) h += `<div class="row"><button class="btn ${a.ldArrow ? 'on' : ''}" data-act="arrow">${a.ldArrow ? 'Arrowhead' : 'No head'}</button></div>`;
     if (isPath) h += `<div class="row"><label>Path width</label><input class="fld" id="oPW" type="number" min="0.5" step="0.5" value="${num(a.strokeWidth / PPF)}">${ftLbl}</div>`;
     if (isTree) h += `<div class="row"><label>Kind</label><select class="fld" id="oSpecies">${spOptions(a.ldSpecies)}</select></div>
-      <div class="row"><label>Canopy</label><input class="fld" id="oDia" type="number" min="1" step="1" value="${num(m.dia, 0)}">${ftLbl}</div>
-      <div class="row"><button class="btn" data-act="reseed">Vary the shape</button></div>`;
+      <div class="row"><label>Spread</label><input class="fld" id="oDia" type="number" min="0.5" step="0.5" value="${num(m.dia)}">${ftLbl}</div>
+      <div class="row"><label>Height</label><input class="fld" id="oTHt" type="number" min="0" step="0.5" value="${num(a.ldTreeHtFt || 0)}">${ftLbl}</div>
+      <div class="row" style="font-size:12px;color:var(--dimmer);display:block">0 = let the species decide (${num(treeHeight(a))} ft).</div>
+      <div class="row" style="margin-top:7px"><button class="btn" data-act="reseed">Vary the shape</button></div>`;
     if (isPoly && !isPath && !isLine) h += `<div class="row"><label>Height for 3D</label><input class="fld" id="oHt" type="number" min="0" step="0.5" value="${num(a.ldHeightFt || 0)}">${ftLbl}</div>
-      <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">Leave at 0 for flat ground. Give a building, wall or hedge a height and it stands up in the 3D view.</div>`;
+      <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">0 keeps it flat on the ground. Give a building or hedge a height and it stands up in 3D.</div>`;
     if (isHead) h += `<div class="row"><label>Throw</label><input class="fld" id="oThrow" type="number" min="1" step="1" value="${num(a.radius * Math.abs(a.scaleX) / PPF, 0)}">${ftLbl}</div>
       <div class="row"><label>Spray arc</label><select class="fld" id="oArc">
         ${[90, 120, 180, 270, 360].map(v => `<option value="${v}" ${(a.ldArc || 360) === v ? 'selected' : ''}>${v}°</option>`).join('')}</select></div>`;
@@ -1977,6 +2092,21 @@ function renderInspector() {
     if (!isHead && !isMarker) h += `<div class="row"><label>Slant across</label><input type="range" id="oSkX" min="-60" max="60" step="1" value="${Math.round(a.skewX)}"></div>
       <div class="row"><label>Slant down</label><input type="range" id="oSkY" min="-60" max="60" step="1" value="${Math.round(a.skewY)}"></div>`;
     h += `</div>`;
+
+    if (isPoly && !isPath && !isLine) {
+      const e = a.ldEdge || 'none';
+      h += `<div class="sect"><h3>Around the rim</h3>
+        <div class="row"><select class="fld" id="oEdge" style="width:100%">${edgeOptions(e)}</select></div>
+        ${e !== 'none' ? `
+        <div class="row"><label>Height</label><input class="fld" id="oEdgeH" type="number" min="0.05" step="0.25" value="${num(a.ldEdgeHtFt || EDGES[e].h, 2)}">${ftLbl}</div>
+        <div class="row"><label>Thickness</label><input class="fld" id="oEdgeW" type="number" min="0.05" step="0.05" value="${num(a.ldEdgeWFt || EDGES[e].w, 2)}">${ftLbl}</div>
+        <div class="row"><label>Colour</label><input type="color" id="oEdgeC" value="${colorOf(a.ldEdgeColor, EDGES[e].col || '#A8A296')}"></div>
+        <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">
+          ${e === 'kerb' ? 'A low edging band — 6 in high and 4 in wide is typical for a flower bed.'
+            : e === 'wall' ? 'A solid wall following the outline. Good around a pool.'
+            : 'Vertical steel bars with a rail top and bottom, drawn see-through in 3D.'}</div>` : ''}
+      </div>`;
+    }
 
     h += `<div class="sect"><h3>Size and position</h3>
       <div class="row"><label>Width</label><input class="fld" id="oW" type="number" min="0.25" step="0.5" value="${num(a.getScaledWidth() / PPF)}">${ftLbl}</div>
@@ -2047,6 +2177,10 @@ function wirePlot() {
   on('#pW', 'change', e => { P.widthFt = clamp(+e.target.value || 10, 4, 4000); redraw(); saveSoon(); });
   on('#pH', 'change', e => { P.heightFt = clamp(+e.target.value || 10, 4, 4000); redraw(); saveSoon(); });
   on('#pG', 'change', e => { P.gridFt = clamp(+e.target.value || 3, .25, 50); redraw(); saveSoon(); });
+  on('#pNorth', 'change', e => { P.northDeg = ((+e.target.value || 0) % 360 + 360) % 360; redraw(); renderInspector(); saveSoon(); if (V3D.open) placeSun(); });
+  on('#pLat', 'change', e => { P.lat = clamp(+e.target.value || 0, -85, 85); saveSoon(); if (V3D.open) placeSun(); });
+  on('#pLon', 'change', e => { P.lon = clamp(+e.target.value || 0, -180, 180); saveSoon(); if (V3D.open) placeSun(); });
+  on('#pDate', 'change', e => { P.dateISO = e.target.value || P.dateISO; saveSoon(); if (V3D.open) placeSun(); });
   on('#pReset', 'click', () => {
     const b = objects().find(o => o.ldKind === 'boundary');
     if (b) canvas.remove(b);
@@ -2070,6 +2204,7 @@ function wireActions(a) {
     if (act === 'dArrow') { D[State.tool].arrow = !D[State.tool].arrow; renderInspector(); return; }
     if (act === 'dFree') { D.path.freehand = true; renderInspector(); setTool('path'); return; }
     if (act === 'dClick') { D.path.freehand = false; renderInspector(); setTool('path'); return; }
+    if (act.startsWith('north')) { P.northDeg = +act.slice(5); redraw(); renderInspector(); saveSoon(); if (V3D.open) placeSun(); return; }
     if (act === 'pick') { pickPreset(b.dataset.g, +b.dataset.i); return; }
     if (act === 'clearStamp') { State.stamp = null; canvas.skipTargetFind = false; setTool('library'); return; }
 
@@ -2142,17 +2277,27 @@ function wireFields(a) {
   const many = () => canvas.getActiveObjects();
 
   /* tool defaults */
-  on('#dFill', 'input', e => { const d = D[State.tool]; d.fill = e.target.value; if (State.tool !== 'tree' && State.tool !== 'label') d.tex = null; });
+  on('#dFill', 'input', e => { const d = D[State.tool]; d.fill = e.target.value; if (!TREETOOLS.includes(State.tool) && State.tool !== 'label') d.tex = null; });
   on('#dFill', 'change', renderInspector);
   on('#dStroke', 'input', e => { D[State.tool].stroke = e.target.value; if (State.tool === 'path') D.path.stex = null; });
   on('#dStroke', 'change', renderInspector);
   on('#dSW', 'change', e => { D[State.tool].sw = clamp(+e.target.value || 1, 0, 200); });
   on('#dPW', 'change', e => { D.path.widthFt = clamp(+e.target.value || 4, .5, 200); });
-  on('#dDia', 'change', e => { D.tree.diaFt = clamp(+e.target.value || 16, 1, 400); });
+  on('#dDia', 'change', e => { D[State.tool].diaFt = clamp(+e.target.value || 16, .5, 400); });
   on('#dFS', 'change', e => { D.label.sizeFt = clamp(+e.target.value || 2, .25, 60); });
   on('#dOp', 'input', e => { D[State.tool].op = +e.target.value / 100; });
   on('#dLS', 'change', e => { D[State.tool].ls = e.target.value; });
-  on('#dSpecies', 'change', e => { D.tree.species = e.target.value; });
+  on('#dSpecies', 'change', e => { D[State.tool].species = e.target.value; });
+  on('#dHtFt', 'change', e => { D[State.tool].htFt = clamp(+e.target.value || 0, 0, 400); });
+  on('#dHt', 'change', e => { D[State.tool].ht = clamp(+e.target.value || 0, 0, 400); });
+  on('#dEdge', 'change', e => {
+    const d = D[State.tool], k = e.target.value;
+    d.edge = k;
+    if (k !== 'none') { d.edgeH = d.edgeH || EDGES[k].h; d.edgeW = d.edgeW || EDGES[k].w; d.edgeC = d.edgeC || EDGES[k].col; }
+    renderInspector();
+  });
+  on('#dEdgeH', 'change', e => { D[State.tool].edgeH = clamp(+e.target.value || .5, .05, 60); });
+  on('#dEdgeW', 'change', e => { D[State.tool].edgeW = clamp(+e.target.value || .33, .05, 20); });
 
   /* many at once */
   on('#mFill', 'input', e => {
@@ -2195,6 +2340,21 @@ function wireFields(a) {
   on('#oLS', 'change', e => { a.ldLineStyle = e.target.value; applyLineStyle(a); done(true); });
   on('#oSpecies', 'change', e => { a.ldSpecies = e.target.value; a.__s = null; a.dirty = true; done(false); });
   on('#oHt', 'change', e => { a.ldHeightFt = clamp(+e.target.value || 0, 0, 400); done(false); });
+  on('#oTHt', 'change', e => { a.ldTreeHtFt = clamp(+e.target.value || 0, 0, 400); done(true); });
+  on('#oEdge', 'change', e => {
+    const k = e.target.value;
+    a.ldEdge = k;
+    if (k !== 'none') {
+      a.ldEdgeHtFt = a.ldEdgeHtFt || EDGES[k].h;
+      a.ldEdgeWFt = a.ldEdgeWFt || EDGES[k].w;
+      a.ldEdgeColor = a.ldEdgeColor || EDGES[k].col;
+    }
+    done(true);
+  });
+  on('#oEdgeH', 'change', e => { a.ldEdgeHtFt = clamp(+e.target.value || .5, .05, 60); done(false); });
+  on('#oEdgeW', 'change', e => { a.ldEdgeWFt = clamp(+e.target.value || .33, .05, 20); done(false); });
+  on('#oEdgeC', 'input', e => { a.ldEdgeColor = e.target.value; canvas.requestRenderAll(); });
+  on('#oEdgeC', 'change', () => done(false));
   on('#oDTxt', 'change', e => { a.ldText = e.target.value.trim() || null; done(false); });
   on('#oDFont', 'change', e => { a.ldFontFt = clamp(+e.target.value || 1.4, .25, 40); done(false); });
   on('#oDCol', 'input', e => { a.ldStrokeColor = e.target.value; canvas.requestRenderAll(); });
@@ -2396,8 +2556,9 @@ function saveSoon() {
 async function openProject(id) {
   const st = loadStore(), pr = st.projects[id];
   if (!pr) return;
-  P = { id: pr.id, name: pr.name, widthFt: pr.widthFt, heightFt: pr.heightFt,
-        gridFt: pr.gridFt, createdAt: pr.createdAt, updatedAt: pr.updatedAt };
+  P = siteDefaults({ id: pr.id, name: pr.name, widthFt: pr.widthFt, heightFt: pr.heightFt,
+        gridFt: pr.gridFt, createdAt: pr.createdAt, updatedAt: pr.updatedAt,
+        northDeg: pr.northDeg, lat: pr.lat, lon: pr.lon, dateISO: pr.dateISO });
   $('#projName').value = P.name;
   histLock = true;
   canvas.clear();
@@ -2411,10 +2572,18 @@ async function openProject(id) {
   st.active = id; saveStore(st);
   setTool('select'); fitPlot(); renderInspector();
 }
+/* Where the site is and which way it faces — everything the sun needs. */
+function siteDefaults(o) {
+  if (o.northDeg == null) o.northDeg = 0;
+  if (o.lat == null) o.lat = 31.5;
+  if (o.lon == null) o.lon = 74.35;
+  if (!o.dateISO) o.dateISO = new Date().toISOString().slice(0, 10);
+  return o;
+}
 function createProject(name, w, h, g) {
   const st = loadStore(), id = uid();
-  st.projects[id] = { id, name: name || 'Untitled plot', widthFt: w, heightFt: h, gridFt: g,
-                      createdAt: Date.now(), updatedAt: Date.now(), scene: null };
+  st.projects[id] = siteDefaults({ id, name: name || 'Untitled plot', widthFt: w, heightFt: h, gridFt: g,
+                      createdAt: Date.now(), updatedAt: Date.now(), scene: null });
   st.active = id; saveStore(st);
   return openProject(id);
 }
@@ -2539,7 +2708,8 @@ const LIB = [
   ]},
   { g: 'Beds and surfaces', items: [
     { kind: 'area', n: 'Lawn',          tex: 'grass',     stroke: '#41503A', sw: '#7B9B5C' },
-    { kind: 'area', n: 'Flower bed',    tex: 'soil',      stroke: '#4A3626', sw: '#5C4632', smooth: true },
+    { kind: 'area', n: 'Flower bed',    tex: 'soil',      stroke: '#4A3626', sw: '#5C4632', smooth: true,
+      edge: 'kerb', edgeH: 0.5, edgeW: 0.333, edgeC: '#A8A296' },
     { kind: 'area', n: 'Vegetable bed', tex: 'soil',      stroke: '#4A3626', sw: '#5C4632' },
     { kind: 'area', n: 'Mulched bed',   tex: 'mulch',     stroke: '#4A3021', sw: '#6B4A32', smooth: true },
     { kind: 'area', n: 'Hedge',         tex: 'hedge',     stroke: '#2F4224', sw: '#4F6B3C', ht: 4 },
@@ -2552,7 +2722,13 @@ const LIB = [
     { kind: 'area', n: 'Sand pit',      tex: 'sand',      stroke: '#B0A075', sw: '#D9CBA6', smooth: true },
     { kind: 'area', n: 'Building',      tex: null, fill: '#B9B4AA', stroke: '#4A463F', sw: '#B9B4AA', ht: 12 },
     { kind: 'area', n: 'Boundary wall',  tex: 'brick',     stroke: '#6B4436', sw: '#A85C43', ht: 6 },
-    { kind: 'area', n: 'Raised planter', tex: 'soil',      stroke: '#4A3626', sw: '#5C4632', ht: 1.5 }
+    { kind: 'area', n: 'Raised planter', tex: 'soil',     stroke: '#4A3626', sw: '#5C4632', ht: 1.5,
+      edge: 'kerb', edgeH: 1.5, edgeW: 0.5, edgeC: '#A8A296' },
+    { kind: 'area', n: 'Swimming pool',  tex: 'water',    stroke: '#33607A', sw: '#5A8AA6', smooth: true,
+      edge: 'wall', edgeH: 4, edgeW: 0.5, edgeC: '#C9C3B6' },
+    { kind: 'area', n: 'Fenced yard',    tex: null, fill: null, stroke: '#6E7781', sw: '#6E7781',
+      edge: 'fence', edgeH: 5, edgeW: 0.15, edgeC: '#6E7781' },
+    { kind: 'area', n: 'Building',       tex: 'concrete', stroke: '#4A463F', sw: '#B9B4AA', ht: 12 }
   ]},
   { g: 'Paths', items: [
     { kind: 'path', n: 'Flagstone path', tex: 'flagstone', stroke: '#9E9A90', w: 4, sw: '#9E9A90', note: "4'" },
@@ -2596,7 +2772,9 @@ function pickPreset(g, i) {
   }
   if (it.kind === 'area') {
     const base = { tex: it.tex || null, fill: it.fill || null, stroke: it.stroke,
-                   sw: 1.5, smooth: !!it.smooth, op: 1, ls: 'solid', ht: it.ht || 0, name: it.n };
+                   sw: 1.5, smooth: !!it.smooth, op: 1, ls: 'solid', ht: it.ht || 0,
+                   edge: it.edge || 'none', edgeH: it.edgeH || 0, edgeW: it.edgeW || 0,
+                   edgeC: it.edgeC || null, name: it.n };
     Object.assign(D.poly, base);
     Object.assign(D.rect, base);
     Object.assign(D.tri, base);
@@ -2735,6 +2913,57 @@ async function composePlan(maxPx, hide) {
   return out;
 }
 
+/* ── 18b. where the sun is ───────────────────────────────────────────── */
+/* Standard solar geometry: declination from the day of year, an equation-of-time
+   correction, then hour angle to altitude and azimuth. Azimuth is a compass
+   bearing — 0 north, 90 east — which is why the plot's north setting matters. */
+const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
+
+function dayOfYear(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  if (isNaN(d)) return 172;
+  return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+}
+function sunPosition(lat, lon, iso, minutes) {
+  const N = dayOfYear(iso);
+  const decl = 23.45 * Math.sin(rad(360 * (284 + N) / 365));
+  const B = rad(360 * (N - 81) / 364);
+  const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+  const tz = Math.round(lon / 15);                       // assume the obvious zone
+  const solar = minutes / 60 + (4 * (lon - 15 * tz) + eot) / 60;
+  const HRA = rad(15 * (solar - 12));
+  const la = rad(lat), de = rad(decl);
+  const alt = Math.asin(Math.sin(de) * Math.sin(la) + Math.cos(de) * Math.cos(la) * Math.cos(HRA));
+  let az = Math.acos(clamp((Math.sin(de) * Math.cos(la) - Math.cos(de) * Math.sin(la) * Math.cos(HRA)) / Math.cos(alt), -1, 1));
+  az = deg(az);
+  if (HRA > 0) az = 360 - az;
+  return { alt: deg(alt), az, decl };
+}
+/* Compass bearing to a direction in the 3D scene. Plan-up is scene -Z. */
+function bearingToVec(bearingDeg, altDeg) {
+  const rel = rad(bearingDeg - (P.northDeg || 0)), a = rad(altDeg);
+  const flat = Math.cos(a);
+  return { x: Math.sin(rel) * flat, y: Math.sin(a), z: -Math.cos(rel) * flat };
+}
+function hhmm(mins) {
+  const h = Math.floor(mins / 60), m = Math.round(mins % 60);
+  const ap = h < 12 ? 'am' : 'pm', hh = ((h + 11) % 12) + 1;
+  return `${hh}:${String(m).padStart(2, '0')} ${ap}`;
+}
+
+/* Sky colour, ambient level and sun brightness, all driven by altitude. */
+function skyFor(alt) {
+  const C = c => new THREE.Color(c);
+  const mix = (a, b, t) => C(a).lerp(C(b), clamp(t, 0, 1));
+  if (alt <= -8) return { bg: C(0x080E19), hemi: .16, dir: 0, col: C(0x4A5A78), night: true };
+  if (alt < 0) { const t = (alt + 8) / 8;
+    return { bg: mix(0x080E19, 0xC96B4A, t), hemi: .16 + t * .18, dir: t * .18, col: mix(0x4A5A78, 0xFF8A4A, t), night: alt < -3 }; }
+  if (alt < 10) { const t = alt / 10;
+    return { bg: mix(0xC96B4A, 0x8FB8DA, t), hemi: .34 + t * .24, dir: .18 + t * .55, col: mix(0xFF8A4A, 0xFFE0B0, t) }; }
+  const t = clamp((alt - 10) / 45, 0, 1);
+  return { bg: mix(0x8FB8DA, 0xA3CBE4, t), hemi: .58 + t * .22, dir: .73 + t * .22, col: mix(0xFFE0B0, 0xFFF6E2, t) };
+}
+
 /* ── 19. 3D view ─────────────────────────────────────────────────────── */
 let TD = null;
 const V3D = { open: false };
@@ -2782,17 +3011,123 @@ function texMaterial(o, colour) {
   return new THREE.MeshLambertMaterial({ color: new THREE.Color(colour || '#B9B4AA') });
 }
 
+function polyArea2(p) {
+  let a = 0;
+  for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]; a += p[i].x * q.y - q.x * p[i].y; }
+  return a / 2;
+}
+/* Push every corner out along its angle bisector. Good enough for the shapes
+   people actually draw; very spiky corners get clamped rather than shooting off. */
+function offsetPoly(pts, d) {
+  const nn = pts.length, out = [];
+  for (let i = 0; i < nn; i++) {
+    const prev = pts[(i - 1 + nn) % nn], cur = pts[i], next = pts[(i + 1) % nn];
+    const e1 = { x: cur.x - prev.x, y: cur.y - prev.y }, e2 = { x: next.x - cur.x, y: next.y - cur.y };
+    const l1 = Math.hypot(e1.x, e1.y) || 1, l2 = Math.hypot(e2.x, e2.y) || 1;
+    const n1 = { x: e1.y / l1, y: -e1.x / l1 }, n2 = { x: e2.y / l2, y: -e2.x / l2 };
+    let bx = n1.x + n2.x, by = n1.y + n2.y;
+    const bl = Math.hypot(bx, by);
+    if (bl < 1e-6) { bx = n1.x; by = n1.y; } else { bx /= bl; by /= bl; }
+    const k = Math.max(.3, bx * n1.x + by * n1.y);
+    out.push({ x: cur.x + bx * d / k, y: cur.y + by * d / k });
+  }
+  return out;
+}
+function shapeFrom(pts) {
+  const sh = new THREE.Shape();
+  pts.forEach((q, i) => i ? sh.lineTo(q.x, q.y) : sh.moveTo(q.x, q.y));
+  sh.closePath();
+  return sh;
+}
+/* Vertical bars with a rail top and bottom, painted into a one-foot tile with
+   transparency between them. Cheaper and better looking than modelling bars. */
+function fenceTexture(colour) {
+  const key = 'fence:' + colour;
+  if (_texCanvas[key]) return _texCanvas[key];
+  const S = 128, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const c = cv.getContext('2d');
+  c.clearRect(0, 0, S, S);
+  c.fillStyle = colour;
+  for (let i = 0; i < 3; i++) c.fillRect(i * S / 3 + S * .09, 0, S * .058, S);
+  c.fillRect(0, S * .05, S, S * .075);
+  c.fillRect(0, S * .80, S, S * .075);
+  return _texCanvas[key] = cv;
+}
+
+function buildEdge(o, scene) {
+  const e = o.ldEdge;
+  if (!e || e === 'none' || !o.points || o.points.length < 3) return 0;
+  const def = EDGES[e];
+  if (!def) return 0;
+  const h = o.ldEdgeHtFt || def.h, w = o.ldEdgeWFt || def.w;
+  const col = o.ldEdgeColor || def.col || '#A8A296';
+  const base = 0;
+  const wp = worldPoints(o).map(q => toScene(q.x, q.y));
+
+  if (e === 'fence') {
+    const t = new THREE.CanvasTexture(fenceTexture(col));
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.ClampToEdgeWrapping;
+    const mat = new THREE.MeshLambertMaterial({
+      map: t, transparent: true, alphaTest: .45, side: THREE.DoubleSide });
+    const pos = [], uv = [], idx = [];
+    let run = 0, vi = 0;
+    for (let i = 0; i < wp.length; i++) {
+      const a = wp[i], b = wp[(i + 1) % wp.length];
+      const L = Math.hypot(b.x - a.x, b.z - a.z);
+      if (L < .05) continue;
+      pos.push(a.x, base, a.z, b.x, base, b.z, b.x, base + h, b.z, a.x, base + h, a.z);
+      uv.push(run, 0, run + L, 0, run + L, 1, run, 1);
+      idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+      vi += 4; run += L;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx); g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.castShadow = true;
+    scene.add(mesh);
+    const postMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(col) });
+    const postG = new THREE.BoxGeometry(w * 2.4, h * 1.06, w * 2.4);
+    wp.forEach(q => {
+      const post = new THREE.Mesh(postG, postMat);
+      post.position.set(q.x, base + h * .53, q.z);
+      post.castShadow = true;
+      scene.add(post);
+    });
+    return 1;
+  }
+
+  const flat = wp.map(q => ({ x: q.x, y: -q.z }));
+  const A = offsetPoly(flat, w / 2), B = offsetPoly(flat, -w / 2);
+  const outer = Math.abs(polyArea2(A)) > Math.abs(polyArea2(B)) ? A : B;
+  const inner = outer === A ? B : A;
+  const sh = shapeFrom(outer);
+  const hole = new THREE.Path();
+  inner.forEach((q, i) => i ? hole.lineTo(q.x, q.y) : hole.moveTo(q.x, q.y));
+  hole.closePath();
+  sh.holes.push(hole);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false });
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: new THREE.Color(col) }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.y = base;
+  m.castShadow = true; m.receiveShadow = true;
+  scene.add(m);
+  return 1;
+}
+
 function buildExtrusion(o) {
   const wp = worldPoints(o);
   if (wp.length < 3) return null;
-  const shape = new THREE.Shape();
-  wp.forEach((p, i) => {
-    const q = toScene(p.x, p.y);
-    if (i === 0) shape.moveTo(q.x, -q.z); else shape.lineTo(q.x, -q.z);
-  });
-  shape.closePath();
+  const shape = shapeFrom(wp.map(pt => { const q = toScene(pt.x, pt.y); return { x: q.x, y: -q.z }; }));
   const g = new THREE.ExtrudeGeometry(shape, { depth: o.ldHeightFt, bevelEnabled: false });
-  const m = new THREE.Mesh(g, texMaterial(o, o.ldFillColor));
+  const wall = texMaterial(o, o.ldFillColor);
+  const roof = o.ldRoofColor
+    ? new THREE.MeshLambertMaterial({ color: new THREE.Color(o.ldRoofColor) })
+    : wall;
+  const m = new THREE.Mesh(g, [roof, wall]);
   m.rotation.x = -Math.PI / 2;
   m.castShadow = true; m.receiveShadow = true;
   return m;
@@ -2802,7 +3137,7 @@ function buildTree(o) {
   const sp = SPECIES[o.ldSpecies || 'broadleaf'] || SPECIES.broadleaf;
   const dia = o.radius * 2 * Math.abs(o.scaleX) / PPF;
   const c = o.getCenterPoint(), pos = toScene(c.x, c.y);
-  const total = dia * sp.h;
+  const total = treeHeight(o);
   const g = new THREE.Group();
   const leafCol = new THREE.Color(o.ldFillColor || '#5E7F45');
   const leaf = new THREE.MeshLambertMaterial({ color: leafCol });
@@ -2859,8 +3194,9 @@ async function build3D() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(48, 1, .3, 40000);
-    TD = { renderer, scene, camera, shadows: true, sun: 135,
+    TD = { renderer, scene, camera, shadows: true, minutes: 11 * 60,
            orbit: { th: -50, ph: 40, dist: 150, tx: 0, tz: 0 }, anim: null };
+    $('#v3dClock').value = TD.minutes;
     bind3D(host);
   }
   const { scene } = TD;
@@ -2870,7 +3206,7 @@ async function build3D() {
   scene.background = new THREE.Color(0x9EC4DE);
   scene.fog = new THREE.Fog(0x9EC4DE, Math.max(Wf, Hf) * 1.6, Math.max(Wf, Hf) * 5);
 
-  const tall = o => o.ldKind === 'area' && (o.ldHeightFt || 0) > 0;
+  const tall = o => (o.ldKind === 'area' || o.ldKind === 'building') && (o.ldHeightFt || 0) > 0;
   const plan = await composePlan(2400, o =>
     o.ldKind === 'tree' || o.ldKind === 'dim' || tall(o));
   const groundTex = new THREE.CanvasTexture(plan);
@@ -2894,37 +3230,97 @@ async function build3D() {
     try {
       if (tall(o)) { const m = buildExtrusion(o); if (m) { scene.add(m); built++; } }
       else if (o.ldKind === 'tree') { scene.add(buildTree(o)); built++; }
+      if (o.points && !isOpenShape(o)) built += buildEdge(o, scene);
     } catch (e) { console.warn('skipped an object in 3D', e); }
   });
 
-  scene.add(new THREE.HemisphereLight(0xBFD8EA, 0x6E7C55, .78));
-  const sun = new THREE.DirectionalLight(0xFFF3DC, .85);
+  const hemi = new THREE.HemisphereLight(0xBFD8EA, 0x6E7C55, .7);
+  scene.add(hemi);
+  TD.hemi = hemi;
+
   const span = Math.max(Wf, Hf);
+  const sun = new THREE.DirectionalLight(0xFFF3DC, .85);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  const cam = sun.shadow.camera;
-  cam.left = -span * .8; cam.right = span * .8;
-  cam.top = span * .8; cam.bottom = -span * .8;
-  cam.near = 1; cam.far = span * 4;
-  cam.updateProjectionMatrix();
-  scene.add(sun);
-  scene.add(sun.target);
+  sun.shadow.bias = -0.0007;
+  const shc = sun.shadow.camera;
+  shc.left = -span * 1.4; shc.right = span * 1.4;
+  shc.top = span * 1.4; shc.bottom = -span * 1.4;
+  shc.near = 1; shc.far = span * 8;
+  shc.updateProjectionMatrix();
+  scene.add(sun); scene.add(sun.target);
   TD.sunLight = sun;
+
+  /* The sun itself, so you can see where the light is coming from. */
+  const ball = new THREE.Mesh(
+    new THREE.SphereGeometry(span * .045, 18, 14),
+    new THREE.MeshBasicMaterial({ color: 0xFFF3C4 }));
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(span * .10, 18, 14),
+    new THREE.MeshBasicMaterial({ color: 0xFFE9A8, transparent: true, opacity: .22, depthWrite: false }));
+  ball.add(glow);
+  scene.add(ball);
+  TD.sunBall = ball; TD.sunGlow = glow;
+
+  const rayG = new THREE.BufferGeometry();
+  rayG.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3));
+  const ray = new THREE.Line(rayG, new THREE.LineDashedMaterial({
+    color: 0xFFE9A8, dashSize: span * .05, gapSize: span * .035, transparent: true, opacity: .55 }));
+  scene.add(ray);
+  TD.sunRay = ray;
+
   placeSun();
 
   TD.orbit.dist = TD.orbit.dist || Math.hypot(Wf, Hf) * 1.1;
   if (!TD.posed) { setView('bird'); TD.posed = true; }
   resize3D();
   if (!TD.anim) loop3D();
-  $('#v3dCount').textContent = built ? `${built} object${built > 1 ? 's' : ''} standing up` : 'flat — give shapes a height';
+  $('#v3dCount').textContent = built
+    ? `${built} standing up`
+    : 'nothing raised yet — give a shape a height or a rim';
 }
 
+const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+const compassName = az => COMPASS[Math.round(((az % 360) + 360) % 360 / 22.5) % 16];
+
 function placeSun() {
-  if (!TD || !TD.sunLight) return;
-  const span = Math.max(P.widthFt, P.heightFt), a = TD.sun * Math.PI / 180;
-  TD.sunLight.position.set(Math.cos(a) * span * .9, span * 1.1, Math.sin(a) * span * .9);
+  if (!TD || !TD.sunLight || !P) return;
+  const mins = TD.minutes == null ? 720 : TD.minutes;
+  const sp = sunPosition(P.lat, P.lon, P.dateISO, mins);
+  const sky = skyFor(sp.alt);
+  const span = Math.max(P.widthFt, P.heightFt), dist = span * 1.9;
+  const v = bearingToVec(sp.az, sp.alt);
+
+  TD.sunLight.position.set(v.x * dist, v.y * dist, v.z * dist);
   TD.sunLight.target.position.set(0, 0, 0);
-  TD.sunLight.castShadow = TD.shadows;
+  TD.sunLight.target.updateMatrixWorld();
+  TD.sunLight.intensity = sky.dir;
+  TD.sunLight.color.copy(sky.col);
+  TD.sunLight.castShadow = TD.shadows && sp.alt > 1;
+  if (TD.hemi) TD.hemi.intensity = sky.hemi;
+  TD.scene.background = sky.bg;
+  if (TD.scene.fog) TD.scene.fog.color.copy(sky.bg);
+
+  if (TD.sunBall) {
+    const up = sp.alt > -6;
+    TD.sunBall.visible = up;
+    TD.sunBall.position.copy(TD.sunLight.position);
+    TD.sunBall.material.color.copy(sky.col);
+    TD.sunGlow.material.color.copy(sky.col);
+    const at = TD.sunRay.geometry.attributes.position;
+    at.setXYZ(0, TD.sunLight.position.x, TD.sunLight.position.y, TD.sunLight.position.z);
+    at.setXYZ(1, 0, 0, 0);
+    at.needsUpdate = true;
+    TD.sunRay.geometry.computeBoundingSphere();
+    TD.sunRay.computeLineDistances();
+    TD.sunRay.visible = sp.alt > 0;
+  }
+  const tEl = $('#v3dTime'), iEl = $('#v3dSunInfo');
+  if (tEl) tEl.textContent = hhmm(mins);
+  if (iEl) iEl.textContent = sp.alt > 0
+    ? `${Math.round(sp.alt)}\u00B0 up, from the ${compassName(sp.az)}`
+    : 'below the horizon';
 }
 function setView(v) {
   if (!TD) return;
@@ -3036,7 +3432,26 @@ $('#btn3D').addEventListener('click', open3D);
 $('#v3dClose').addEventListener('click', close3D);
 $('#v3dRebuild').addEventListener('click', () => { note3D('Rebuilding…'); build3D().then(() => note3D('')); });
 $$('#v3dBar [data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
-$('#v3dSun').addEventListener('input', e => { if (TD) { TD.sun = +e.target.value; placeSun(); } });
+$('#v3dClock').addEventListener('input', e => {
+  if (!TD) return;
+  stopDay();
+  TD.minutes = +e.target.value;
+  placeSun();
+});
+let dayTimer = null;
+function stopDay() {
+  if (dayTimer) { clearInterval(dayTimer); dayTimer = null; $('#v3dPlay').innerHTML = '&#9654;'; }
+}
+$('#v3dPlay').addEventListener('click', () => {
+  if (dayTimer) { stopDay(); return; }
+  if (!TD) return;
+  $('#v3dPlay').innerHTML = '&#10073;&#10073;';
+  dayTimer = setInterval(() => {
+    TD.minutes = ((TD.minutes == null ? 720 : TD.minutes) + 6) % 1440;
+    $('#v3dClock').value = TD.minutes;
+    placeSun();
+  }, 45);
+});
 $('#v3dShadow').addEventListener('click', () => {
   if (!TD) return;
   TD.shadows = !TD.shadows;
@@ -3044,6 +3459,7 @@ $('#v3dShadow').addEventListener('click', () => {
   $('#v3dShadow').classList.toggle('key', TD.shadows);
   placeSun();
 });
+$('#v3dClose').addEventListener('click', stopDay);
 $('#btnInsp').addEventListener('click', () => $('#insp').classList.toggle('open'));
 $('#btnUndo').addEventListener('click', undo);
 $('#btnRedo').addEventListener('click', redo);
@@ -3088,8 +3504,8 @@ function typing() {
   return !!(a && a.isEditing);
 }
 const TOOLKEY = { v: 'select', h: 'pan', r: 'rect', o: 'ellipse', y: 'tri', p: 'poly',
-                  w: 'path', n: 'line', a: 'arrow', t: 'tree', x: 'label', m: 'measure',
-                  b: 'library', i: 'trace' };
+                  w: 'path', n: 'line', a: 'arrow', t: 'tree', u: 'treeTall', s: 'treeShrub',
+                  c: 'building', x: 'label', m: 'measure', b: 'library', i: 'trace' };
 
 window.addEventListener('keydown', e => {
   if (e.code === 'Space' && !typing()) {
