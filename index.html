@@ -115,6 +115,9 @@ input[type=range]{flex:2;accent-color:var(--mark);min-width:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
 .swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.libitem{font-size:13px;padding:6px 9px}
+.libitem .dot{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.35);flex:none}
+.libitem.on .dot{border-color:#fff}
 .sw{aspect-ratio:1;border-radius:var(--r);border:1px solid var(--line);position:relative;
   overflow:hidden;background-size:cover}
 .sw.on{border-color:var(--mark);box-shadow:0 0 0 1px var(--mark)}
@@ -177,6 +180,24 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
 .keys .g{grid-column:1/-1;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--dimmer);margin-top:9px}
 .keys .g:first-child{margin-top:0}
+#v3d{position:fixed;inset:0;z-index:40;background:#9EC4DE;display:none}
+#v3d.show{display:block}
+#v3dCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#v3dCanvas:active{cursor:grabbing}
+#v3dBar{position:absolute;top:0;left:0;right:0;height:44px;display:flex;align-items:center;
+  gap:6px;padding:0 10px;background:rgba(21,30,39,.94);border-bottom:1px solid var(--line);
+  overflow-x:auto;overflow-y:hidden}
+#v3dBar>*{flex:none}
+#v3dBar .spacer{flex:1 1 auto}
+#v3dCount{font-family:var(--mono);font-size:10px;color:var(--dimmer);padding-right:9px;white-space:nowrap}
+.sunlbl{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--dim)}
+.sunlbl input{width:96px;accent-color:var(--mark)}
+#v3dHint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+  background:rgba(14,21,28,.72);border-radius:var(--r);padding:5px 12px;
+  font-size:12px;color:#DCE6EF;pointer-events:none}
+#v3dNote{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(14,21,28,.9);border:1px solid var(--line);border-radius:var(--r);
+  padding:11px 18px;font-size:14px;color:var(--txt);display:none}
 #toast{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:60;
   background:var(--panel-2);border:1px solid var(--line);border-left:2px solid var(--mark);
   border-radius:var(--r);padding:9px 15px;font-size:13px;opacity:0;pointer-events:none;
@@ -209,6 +230,7 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
   <button class="tb" id="btnExport">Export</button>
   <button class="tb" id="btnImport">Import</button>
   <button class="tb" id="btnPng">PNG</button>
+  <button class="tb key" id="btn3D">3D view</button>
   <span class="sep"></span>
   <div class="zoomgrp">
     <button id="zOut" title="Zoom out">&minus;</button>
@@ -237,6 +259,10 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
     <svg viewBox="0 0 24 24"><path d="M4 9l6-5 10 4-2 11-11 1z"/><circle cx="4" cy="9" r="1.6" fill="currentColor"/><circle cx="20" cy="8" r="1.6" fill="currentColor"/></svg><span class="kbd">P</span></button>
   <button class="tool" data-tool="path" title="Pathway — click each turn, Enter to finish — W">
     <svg viewBox="0 0 24 24"><path d="M6 20c0-5 3-5 3-9S5 7 6 4"/><path d="M14 20c0-5 4-5 4-9s-4-4-3-7"/></svg><span class="kbd">W</span></button>
+  <button class="tool" data-tool="line" title="Straight line — N">
+    <svg viewBox="0 0 24 24"><path d="M4 20L20 4"/><circle cx="4" cy="20" r="1.7" fill="currentColor"/><circle cx="20" cy="4" r="1.7" fill="currentColor"/></svg><span class="kbd">N</span></button>
+  <button class="tool" data-tool="arrow" title="Arrow — A">
+    <svg viewBox="0 0 24 24"><path d="M4 20L19 5"/><path d="M12 5h7v7"/></svg><span class="kbd">A</span></button>
   <div class="railgap"></div>
   <button class="tool" data-tool="tree" title="Place a tree — T">
     <svg viewBox="0 0 24 24"><path d="M12 15v5"/><path d="M12 3.5c3.6 0 6.5 2.7 6.5 6s-2.9 5.8-6.5 5.8S5.5 12.8 5.5 9.5s2.9-6 6.5-6z"/></svg><span class="kbd">T</span></button>
@@ -244,6 +270,12 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
     <svg viewBox="0 0 24 24"><path d="M5 7V5h14v2M12 5v14M9 19h6"/></svg><span class="kbd">X</span></button>
   <button class="tool" data-tool="measure" title="Measure a distance — M">
     <svg viewBox="0 0 24 24"><path d="M3 14.5L14.5 3l6.5 6.5L9.5 21z"/><path d="M7.5 10l2 2M10.5 7l2 2M13.5 4l2 2"/></svg><span class="kbd">M</span></button>
+  <div class="railgap"></div>
+  <button class="tool" data-tool="library" title="Plants, surfaces and irrigation — B">
+    <svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M17 5.5l3.5 1-3 14-3.4-1z"/></svg><span class="kbd">B</span></button>
+  <button class="tool" data-tool="trace" title="Trace over a photo or site plan — I">
+    <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 16l5-5 4 4 3-2.5 5 4"/><circle cx="9" cy="9" r="1.6"/></svg><span class="kbd">I</span></button>
+  <input type="file" id="traceIn" accept="image/*" hidden>
 </nav>
 
 <div id="stage">
@@ -301,7 +333,14 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
     <div class="k"><kbd>R</kbd> <kbd>O</kbd> <kbd>Y</kbd></div><div>Rectangle, ellipse, triangle</div>
     <div class="k"><kbd>P</kbd></div><div>Area — click each corner</div>
     <div class="k"><kbd>W</kbd></div><div>Pathway — click each turn</div>
+    <div class="k"><kbd>N</kbd> <kbd>A</kbd></div><div>Line, arrow</div>
     <div class="k"><kbd>T</kbd> <kbd>X</kbd> <kbd>M</kbd></div><div>Tree, label, measure</div>
+    <div class="k"><kbd>B</kbd></div><div>Library — plants, surfaces, irrigation</div>
+    <div class="k"><kbd>I</kbd></div><div>Bring in an image to trace over</div>
+    <div class="g">Dimensions</div>
+    <div class="k">Measure tool</div><div>Leaves a dimension you can move, relabel or delete</div>
+    <div class="k">Middle handle</div><div>Drags the number off the line</div>
+    <div class="k">End handles</div><div>Re-measure between two new points</div>
     <div class="g">While drawing</div>
     <div class="k"><kbd>Enter</kbd></div><div>Finish the shape</div>
     <div class="k"><kbd>Backspace</kbd></div><div>Undo the last point</div>
@@ -325,6 +364,28 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
   </div></div>
   <footer><button class="btn" data-close>Got it</button></footer>
 </div></div>
+
+<div id="v3d">
+  <canvas id="v3dCanvas"></canvas>
+  <div id="v3dBar">
+    <span class="brand">3D</span>
+    <button class="tb" data-view="bird">Bird's eye</button>
+    <button class="tb" data-view="top">Straight down</button>
+    <button class="tb" data-view="n">From north</button>
+    <button class="tb" data-view="s">From south</button>
+    <button class="tb" data-view="e">From east</button>
+    <button class="tb" data-view="w">From west</button>
+    <span class="sep"></span>
+    <label class="sunlbl">Sun<input type="range" id="v3dSun" min="0" max="360" value="135"></label>
+    <button class="tb key" id="v3dShadow">Shadows on</button>
+    <button class="tb" id="v3dRebuild">Rebuild</button>
+    <span class="spacer"></span>
+    <span id="v3dCount"></span>
+    <button class="tb key" id="v3dClose">Back to the plan</button>
+  </div>
+  <div id="v3dHint">Drag to orbit &middot; <kbd>Shift</kbd>+drag to slide &middot; wheel to zoom</div>
+  <div id="v3dNote"></div>
+</div>
 
 <div id="toast"></div>
 
@@ -545,6 +606,35 @@ function texSwatchURL(key) {
    outline is drawn as a quadratic spline through their midpoints. That gives
    curved beds and winding paths without a separate bezier handle system. */
 
+/* Dash patterns are written as multiples of stroke width so a hairline and a
+   fat wall both read as the same kind of line. */
+const LINESTYLES = {
+  solid:   { n: 'Solid',    dash: null },
+  dashed:  { n: 'Dashed',   dash: [5, 3.4] },
+  dotted:  { n: 'Dotted',   dash: [0.01, 2.6], cap: 'round' },
+  dashdot: { n: 'Dash-dot', dash: [7, 2.6, 0.01, 2.6], cap: 'round' },
+  double:  { n: 'Double',   dash: null, double: true }
+};
+function applyLineStyle(o) {
+  const st = LINESTYLES[o.ldLineStyle || 'solid'] || LINESTYLES.solid;
+  const w = Math.max(.2, o.strokeWidth || 1);
+  o.set('strokeDashArray', st.dash ? st.dash.map(v => Math.max(.01, v * w)) : null);
+  if (st.cap) o.set('strokeLineCap', 'round');
+  else if (o.ldKind !== 'path') o.set('strokeLineCap', 'butt');
+}
+/* A double line is one stroke with a thinner stroke of the paper colour laid
+   back over it — the cheapest way to get a wall or kerb read. */
+function strokeDouble(o, ctx) {
+  if ((o.ldLineStyle || 'solid') !== 'double' || !o.strokeWidth) return;
+  ctx.save();
+  if (o.strokeUniform) ctx.scale(1 / Math.abs(o.scaleX || 1), 1 / Math.abs(o.scaleY || 1));
+  ctx.setLineDash([]);
+  ctx.lineWidth = o.strokeWidth * .42;
+  ctx.strokeStyle = o.ldInnerColor || PAPER;
+  ctx.stroke();
+  ctx.restore();
+}
+
 function renderPoly(obj, ctx, closed) {
   const p = obj.points, n = p.length, ox = obj.pathOffset.x, oy = obj.pathOffset.y;
   if (n < 2) return;
@@ -570,6 +660,7 @@ function renderPoly(obj, ctx, closed) {
     ctx.lineTo(p[n - 1].x - ox, p[n - 1].y - oy);
   }
   obj._renderPaintInOrder(ctx);
+  strokeDouble(obj, ctx);
 }
 
 class LandPoly extends F.Polygon {
@@ -578,42 +669,206 @@ class LandPoly extends F.Polygon {
 }
 class LandPath extends F.Polyline {
   static type = 'LandPath';
-  _render(ctx) { renderPoly(this, ctx, false); }
+  _render(ctx) {
+    renderPoly(this, ctx, false);
+    if (this.ldArrow) drawHead(this, ctx);
+  }
 }
+function drawHead(o, ctx) {
+  const p = o.points, n = p.length;
+  if (n < 2) return;
+  const ox = o.pathOffset.x, oy = o.pathOffset.y;
+  const b = { x: p[n - 1].x - ox, y: p[n - 1].y - oy };
+  const a = { x: p[n - 2].x - ox, y: p[n - 2].y - oy };
+  const L = Math.max(7, o.strokeWidth * 3.4), W = L * .5;
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.rotate(Math.atan2(b.y - a.y, b.x - a.x));
+  ctx.beginPath();
+  ctx.moveTo(0, 0); ctx.lineTo(-L, -W); ctx.lineTo(-L * .70, 0); ctx.lineTo(-L, W);
+  ctx.closePath();
+  ctx.fillStyle = typeof o.stroke === 'string' && o.stroke ? o.stroke : '#333';
+  ctx.fill();
+  ctx.restore();
+}
+/* Plan-view symbols. `h` is canopy height as a multiple of its spread, which
+   the 3D view uses to work out how tall to build each one. */
+const SPECIES = {
+  broadleaf: { n: 'Broadleaf',  h: .70, form: 'ball' },
+  fruit:     { n: 'Fruit tree', h: .62, form: 'ball' },
+  conifer:   { n: 'Conifer',    h: 1.9, form: 'cone' },
+  palm:      { n: 'Palm',       h: 1.6, form: 'palm' },
+  columnar:  { n: 'Columnar',   h: 2.6, form: 'column' },
+  weeping:   { n: 'Weeping',    h: .85, form: 'weep' },
+  shrub:     { n: 'Shrub',      h: .80, form: 'dome' },
+  rose:      { n: 'Flowering',  h: .70, form: 'dome' }
+};
+const SPECIESKEYS = Object.keys(SPECIES);
+
+function blobPath(ctx, R, L) {
+  const n = L.length, P = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2;
+    P.push({ x: Math.cos(a) * R * L[i], y: Math.sin(a) * R * L[i] });
+  }
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  ctx.beginPath();
+  const s = mid(P[n - 1], P[0]); ctx.moveTo(s.x, s.y);
+  for (let i = 0; i < n; i++) {
+    const c = P[i], e = mid(c, P[(i + 1) % n]);
+    ctx.quadraticCurveTo(c.x, c.y, e.x, e.y);
+  }
+  ctx.closePath();
+}
+function shade(ctx, R, dark, light) {
+  ctx.save(); ctx.clip();
+  ctx.globalAlpha = dark; ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(R * .42, R * .42, R * .95, 0, 7); ctx.fill();
+  ctx.globalAlpha = light; ctx.fillStyle = '#DCEFC2';
+  ctx.beginPath(); ctx.arc(-R * .30, -R * .32, R * .50, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function trunkDot(ctx, R) {
+  ctx.beginPath(); ctx.arc(0, 0, Math.max(1.4, R * .07), 0, 7);
+  ctx.fillStyle = 'rgba(56,38,22,.9)'; ctx.fill();
+}
+
 class Tree extends F.Circle {
   static type = 'Tree';
-  _lobes() {
-    if (this.__l && this.__s === this.ldSeed) return this.__l;
+  _lobes(count, lo, hi) {
+    const key = (this.ldSeed || 1) + ':' + (this.ldSpecies || 'broadleaf');
+    if (this.__l && this.__s === key) return this.__l;
     const r = prng(this.ldSeed || 1), a = [];
-    for (let i = 0; i < 16; i++) a.push(i % 2 ? .70 + r() * .09 : .96 + r() * .10);
-    this.__s = this.ldSeed; return this.__l = a;
+    for (let i = 0; i < count; i++) a.push(i % 2 ? lo + r() * .09 : hi + r() * .10);
+    this.__s = key; return this.__l = a;
   }
   _render(ctx) {
-    const R = this.radius, L = this._lobes(), n = L.length, P = [];
-    for (let i = 0; i < n; i++) {
-      const a = i / n * Math.PI * 2;
-      P.push({ x: Math.cos(a) * R * L[i], y: Math.sin(a) * R * L[i] });
+    const R = this.radius, sp = this.ldSpecies || 'broadleaf';
+    const r = prng((this.ldSeed || 1) + 17);
+    const fill = this.ldFillColor || '#5E7F45';
+    const line = this.ldStrokeColor || '#33492A';
+    const paint = () => { ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = this.strokeWidth || 1.5; ctx.stroke(); };
+
+    if (sp === 'conifer') {
+      const n = 20, P = [];
+      for (let i = 0; i < n; i++) {
+        const a = i / n * Math.PI * 2, k = i % 2 ? .52 : 1;
+        P.push({ x: Math.cos(a) * R * k, y: Math.sin(a) * R * k });
+      }
+      ctx.beginPath(); ctx.moveTo(P[0].x, P[0].y);
+      P.slice(1).forEach(q => ctx.lineTo(q.x, q.y));
+      ctx.closePath(); paint();
+      shade(ctx, R, .12, .10);
+      ctx.beginPath(); ctx.arc(0, 0, R * .34, 0, 7);
+      ctx.strokeStyle = line; ctx.lineWidth = Math.max(.8, R * .035); ctx.stroke();
+      trunkDot(ctx, R);
+      return;
     }
-    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-    ctx.beginPath();
-    const s = mid(P[n - 1], P[0]); ctx.moveTo(s.x, s.y);
-    for (let i = 0; i < n; i++) {
-      const c = P[i], e = mid(c, P[(i + 1) % n]);
-      ctx.quadraticCurveTo(c.x, c.y, e.x, e.y);
+    if (sp === 'palm') {
+      const n = 9;
+      ctx.strokeStyle = line; ctx.lineWidth = Math.max(.9, R * .04);
+      for (let i = 0; i < n; i++) {
+        const a = i / n * Math.PI * 2 + r() * .18, len = R * (.82 + r() * .18);
+        const px = Math.cos(a) * len, py = Math.sin(a) * len;
+        const bx = Math.cos(a + .34) * len * .5, by = Math.sin(a + .34) * len * .5;
+        const cx = Math.cos(a - .34) * len * .5, cy = Math.sin(a - .34) * len * .5;
+        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(bx, by, px, py);
+        ctx.quadraticCurveTo(cx, cy, 0, 0);
+        ctx.closePath();
+        ctx.fillStyle = fill; ctx.fill(); ctx.stroke();
+      }
+      trunkDot(ctx, R);
+      return;
     }
-    ctx.closePath();
-    this._renderPaintInOrder(ctx);
-    ctx.save(); ctx.clip();
-    ctx.globalAlpha = .14; ctx.fillStyle = '#000';
-    ctx.beginPath(); ctx.arc(R * .42, R * .42, R * .95, 0, 7); ctx.fill();
-    ctx.globalAlpha = .16; ctx.fillStyle = '#C6DFA6';
-    ctx.beginPath(); ctx.arc(-R * .30, -R * .32, R * .50, 0, 7); ctx.fill();
-    ctx.restore();
-    ctx.beginPath(); ctx.arc(0, 0, Math.max(1.4, R * .07), 0, 7);
-    ctx.fillStyle = 'rgba(56,38,22,.9)'; ctx.fill();
+    if (sp === 'shrub' || sp === 'rose') {
+      const n = sp === 'rose' ? 6 : 5;
+      for (let i = 0; i < n; i++) {
+        const a = i / n * Math.PI * 2, d = R * .48, rad = R * (sp === 'rose' ? .40 : .52 + r() * .10);
+        ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, rad, 0, 7);
+        paint();
+      }
+      ctx.beginPath(); ctx.arc(0, 0, R * (sp === 'rose' ? .26 : .46), 0, 7);
+      ctx.fillStyle = sp === 'rose' ? (this.ldBloomColor || '#D96A8E') : fill;
+      ctx.fill(); ctx.strokeStyle = line; ctx.stroke();
+      return;
+    }
+    if (sp === 'columnar') {
+      ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); paint();
+      shade(ctx, R, .14, .14);
+      ctx.beginPath(); ctx.arc(0, 0, R * .58, 0, 7);
+      ctx.strokeStyle = line; ctx.lineWidth = Math.max(.8, R * .05); ctx.stroke();
+      trunkDot(ctx, R);
+      return;
+    }
+    if (sp === 'weeping') {
+      blobPath(ctx, R, this._lobes(18, .78, .98)); paint();
+      shade(ctx, R, .12, .12);
+      ctx.strokeStyle = line; ctx.lineWidth = Math.max(.7, R * .028);
+      for (let i = 0; i < 14; i++) {
+        const a = i / 14 * Math.PI * 2 + r() * .2;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * R * .12, Math.sin(a) * R * .12);
+        ctx.quadraticCurveTo(Math.cos(a + .3) * R * .6, Math.sin(a + .3) * R * .6,
+                             Math.cos(a) * R * .9, Math.sin(a) * R * .9);
+        ctx.stroke();
+      }
+      trunkDot(ctx, R);
+      return;
+    }
+    blobPath(ctx, R, this._lobes(16, .70, .96)); paint();
+    shade(ctx, R, .14, .16);
+    if (sp === 'fruit') {
+      for (let i = 0; i < 7; i++) {
+        const a = r() * Math.PI * 2, d = R * (.30 + r() * .48);
+        ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, Math.max(1.2, R * .085), 0, 7);
+        ctx.fillStyle = this.ldBloomColor || '#D8663F'; ctx.fill();
+      }
+    }
+    trunkDot(ctx, R);
   }
 }
-[LandPoly, LandPath, Tree].forEach(K => {
+/* A sprinkler is drawn as its own coverage: the wedge IS the object, so its
+   radius is throw distance in feet and its angle is where it's aimed. */
+class Sprinkler extends F.Circle {
+  static type = 'Sprinkler';
+  _render(ctx) {
+    const R = this.radius, arc = (this.ldArc || 360) * Math.PI / 180;
+    ctx.save();
+    ctx.beginPath();
+    if (arc < Math.PI * 2 - .01) { ctx.moveTo(0, 0); ctx.arc(0, 0, R, -arc / 2, arc / 2); ctx.closePath(); }
+    else ctx.arc(0, 0, R, 0, Math.PI * 2);
+    ctx.fillStyle = this.ldFillColor || 'rgba(74,140,190,.18)';
+    ctx.fill();
+    ctx.setLineDash([Math.max(4, R * .06), Math.max(4, R * .05)]);
+    ctx.strokeStyle = this.ldStrokeColor || 'rgba(32,96,146,.85)';
+    ctx.lineWidth = Math.max(1.2, R * .022);
+    ctx.stroke();
+    ctx.restore();
+    const d = Math.max(2.6, R * .05);
+    ctx.beginPath(); ctx.arc(0, 0, d, 0, Math.PI * 2);
+    ctx.fillStyle = '#1E5C8A'; ctx.fill();
+    ctx.lineWidth = d * .45; ctx.strokeStyle = '#fff'; ctx.stroke();
+  }
+}
+/* Valves, bibs, tees, meters — a coloured disc with a glyph. */
+class Marker extends F.Circle {
+  static type = 'Marker';
+  _render(ctx) {
+    const R = this.radius, s = this.ldSymbol || 'valve';
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2);
+    ctx.fillStyle = this.ldFillColor || '#2F6FB0'; ctx.fill();
+    ctx.lineWidth = Math.max(1, R * .16); ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1.3, R * .20);
+    ctx.lineCap = 'round'; ctx.beginPath();
+    const k = R * .46;
+    if (s === 'valve') { ctx.moveTo(-k, -k); ctx.lineTo(k, k); ctx.moveTo(k, -k); ctx.lineTo(-k, k); }
+    else if (s === 'bib') { ctx.moveTo(0, -k); ctx.lineTo(0, k); ctx.moveTo(-k, 0); ctx.lineTo(k, 0); }
+    else if (s === 'tee') { ctx.moveTo(-k, -k * .5); ctx.lineTo(k, -k * .5); ctx.moveTo(0, -k * .5); ctx.lineTo(0, k); }
+    else { ctx.arc(0, 0, R * .40, 0, Math.PI * 2); }
+    ctx.stroke();
+  }
+}
+[LandPoly, LandPath, Tree, Sprinkler, Marker].forEach(K => {
   try { F.classRegistry.setClass(K); } catch (e) {}
   try { F.classRegistry.setClass(K, K.type); } catch (e) {}
   try { F.classRegistry.setClass(K, K.type.toLowerCase()); } catch (e) {}
@@ -621,15 +876,168 @@ class Tree extends F.Circle {
 
 /* Custom fields ride along in the saved JSON. Textures are swapped for a flat
    colour on the way out so the file stays small, then re-applied on load. */
-const CUSTOM = ['ldId', 'ldKind', 'ldTex', 'ldStrokeTex', 'ldLock', 'ldSmooth',
-                'ldName', 'ldLabelFor', 'ldSeed', 'ldWidthFt'];
+const CUSTOM = ['ldId', 'ldKind', 'ldTex', 'ldStrokeTex', 'ldFillColor', 'ldStrokeColor',
+                'ldLock', 'ldSmooth', 'ldName', 'ldLabelFor', 'ldSeed', 'ldWidthFt',
+                'ldArrow', 'ldArc', 'ldSymbol', 'ldPreset', 'ldLineStyle', 'ldSpecies',
+                'ldHeightFt', 'ldWit', 'ldTxt', 'ldText', 'ldDimFor', 'ldDimIdx',
+                'ldFontFt', 'ldBloomColor', 'ldInnerColor'];
 const _toObject = FObject.prototype.toObject;
 FObject.prototype.toObject = function (extra) {
   const o = _toObject.call(this, [...(extra || []), ...CUSTOM]);
-  if (this.ldTex && TEX[this.ldTex]) o.fill = TEX[this.ldTex].swatch;
-  if (this.ldStrokeTex && TEX[this.ldStrokeTex]) o.stroke = TEX[this.ldStrokeTex].swatch;
+  if (this.ldTex) o.fill = this.ldFillColor || '';        // patterns are rebuilt on load
+  if (this.ldStrokeTex) o.stroke = this.ldStrokeColor || '';
   return o;
 };
+
+
+/* ── dimension lines ─────────────────────────────────────────────────── */
+/* A Dim is a two-point polyline that draws itself as a proper dimension:
+   witness lines back to what it measures, ticks at each end, and a number
+   you can drag anywhere. Its own two ends are draggable too. */
+class Dim extends F.Polyline {
+  static type = 'Dim';
+  _render(ctx) {
+    const p = this.points;
+    if (p.length < 2) return;
+    const ox = this.pathOffset.x, oy = this.pathOffset.y;
+    const A = { x: p[0].x - ox, y: p[0].y - oy };
+    const B = { x: p[1].x - ox, y: p[1].y - oy };
+    const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1;
+    const ux = dx / L, uy = dy / L;
+    const col = this.ldStrokeColor || '#B0316B';
+    const lw = this.strokeWidth || 1.4;
+
+    ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash([]); ctx.lineCap = 'butt';
+
+    const w = this.ldWit;
+    if (w && (w.x || w.y)) {                       // witness lines back to the edge
+      ctx.save(); ctx.globalAlpha = .55;
+      ctx.beginPath();
+      ctx.moveTo(A.x - w.x * 1.06, A.y - w.y * 1.06); ctx.lineTo(A.x + w.x * .14, A.y + w.y * .14);
+      ctx.moveTo(B.x - w.x * 1.06, B.y - w.y * 1.06); ctx.lineTo(B.x + w.x * .14, B.y + w.y * .14);
+      ctx.stroke(); ctx.restore();
+    }
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+
+    const t = Math.max(3, (this.ldFontFt || 1.4) * PPF * .34);   // end ticks
+    const tx = (ux + -uy) * t, ty = (uy + ux) * t;
+    ctx.beginPath();
+    ctx.moveTo(A.x - tx, A.y - ty); ctx.lineTo(A.x + tx, A.y + ty);
+    ctx.moveTo(B.x - tx, B.y - ty); ctx.lineTo(B.x + tx, B.y + ty);
+    ctx.stroke();
+
+    const m = dimLabelPoint(this, true);
+    const fs = (this.ldFontFt || 1.4) * PPF;
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(-(this.angle || 0) * Math.PI / 180);
+    ctx.font = `600 ${fs}px "IBM Plex Mono", monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const txt = this.ldText || dimText(this);
+    const tw = ctx.measureText(txt).width;
+    ctx.fillStyle = 'rgba(230,231,223,.92)';
+    ctx.fillRect(-tw / 2 - fs * .22, -fs * .62, tw + fs * .44, fs * 1.24);
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(.6, fs * .045);
+    ctx.strokeRect(-tw / 2 - fs * .22, -fs * .62, tw + fs * .44, fs * 1.24);
+    ctx.fillStyle = col;
+    ctx.fillText(txt, 0, fs * .04);
+    ctx.restore();
+  }
+}
+function dimLength(o) {
+  const p = o.points;
+  return Math.hypot((p[1].x - p[0].x) * Math.abs(o.scaleX), (p[1].y - p[0].y) * Math.abs(o.scaleY));
+}
+function dimText(o) { return o.ldUnitsFt ? num(dimLength(o) / PPF) + "'" : ft(dimLength(o), true); }
+function dimLabelPoint(o, local) {
+  const p = o.points, t = o.ldTxt || { x: 0, y: 0 };
+  const mx = (p[0].x + p[1].x) / 2 + t.x, my = (p[0].y + p[1].y) / 2 + t.y;
+  return local ? { x: mx - o.pathOffset.x, y: my - o.pathOffset.y } : { x: mx, y: my };
+}
+function dimControls(o) {
+  const c = polyControls(o);
+  c.lbl = new F.Control({
+    actionName: 'dimLabel', cursorStyle: 'move',
+    positionHandler(dim, finalMatrix, obj) {
+      const t = dimLabelPoint(obj, true);
+      return F.util.transformPoint(t,
+        F.util.multiplyTransformMatrices(obj.canvas.viewportTransform, obj.calcTransformMatrix()));
+    },
+    actionHandler(ev, transform, x, y) {
+      const t = transform.target;
+      const q = F.util.transformPoint(new F.Point(x, y), F.util.invertTransform(t.calcTransformMatrix()));
+      const p = t.points;
+      t.ldTxt = { x: q.x + t.pathOffset.x - (p[0].x + p[1].x) / 2,
+                  y: q.y + t.pathOffset.y - (p[0].y + p[1].y) / 2 };
+      return true;
+    }
+  });
+  return c;
+}
+function newDim(pts, extra) {
+  const o = new Dim(pts, Object.assign({
+    fill: '', stroke: '', strokeWidth: 1.4, strokeUniform: true,
+    objectCaching: false, lockScalingX: true, lockScalingY: true,
+    ldStrokeColor: '#B0316B', ldFontFt: 1.4, ldTxt: { x: 0, y: 0 }, ldName: 'Dimension'
+  }, extra || {}));
+  tag(o, 'dim');
+  o.controls = dimControls(o);
+  o.set({ cornerStyle: 'circle', cornerColor: MARK, cornerStrokeColor: '#fff',
+          cornerSize: 9, transparentCorners: false, hasBorders: false });
+  return o;
+}
+
+[Dim].forEach(K => {
+  try { F.classRegistry.setClass(K); } catch (e) {}
+  try { F.classRegistry.setClass(K, K.type); } catch (e) {}
+  try { F.classRegistry.setClass(K, K.type.toLowerCase()); } catch (e) {}
+});
+
+/* Scene-space corners of a shape, after its own move, scale and rotation. */
+function worldPoints(o) {
+  const m = o.calcTransformMatrix();
+  return o.points.map(p => F.util.transformPoint({ x: p.x - o.pathOffset.x, y: p.y - o.pathOffset.y }, m));
+}
+function dimsFor(id) { return objects().filter(o => o.ldKind === 'dim' && o.ldDimFor === id); }
+
+function addDimensions(o, keepOffsets) {
+  if (!o || !o.points) return;
+  const old = {};
+  dimsFor(o.ldId).forEach(d => {
+    if (keepOffsets) old[d.ldDimIdx] = { txt: d.ldTxt, text: d.ldText, font: d.ldFontFt, col: d.ldStrokeColor };
+    canvas.remove(d);
+  });
+  const wp = worldPoints(o), n = wp.length;
+  const closed = !isOpenShape(o);
+  const segs = closed ? n : n - 1;
+  const c = wp.reduce((a, q) => ({ x: a.x + q.x / n, y: a.y + q.y / n }), { x: 0, y: 0 });
+  const off = Math.max(gridU() * .55, 16);
+  let made = 0;
+  for (let i = 0; i < segs; i++) {
+    const A = wp[i], B = wp[(i + 1) % n];
+    const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy);
+    if (L < 8) continue;
+    let nx = -dy / L, ny = dx / L;
+    const mid = { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 };
+    if (closed && (mid.x - c.x) * nx + (mid.y - c.y) * ny < 0) { nx = -nx; ny = -ny; }
+    const prev = old[i] || {};
+    const d = newDim(
+      [{ x: A.x + nx * off, y: A.y + ny * off }, { x: B.x + nx * off, y: B.y + ny * off }],
+      { ldWit: { x: nx * off, y: ny * off }, ldDimFor: o.ldId, ldDimIdx: i,
+        ldTxt: prev.txt || { x: 0, y: 0 }, ldText: prev.text || null,
+        ldFontFt: prev.font || 1.4, ldStrokeColor: prev.col || '#B0316B' });
+    canvas.add(d);
+    made++;
+  }
+  canvas.requestRenderAll();
+  return made;
+}
+function removeDimensions(o) {
+  const d = dimsFor(o.ldId);
+  d.forEach(x => canvas.remove(x));
+  canvas.requestRenderAll();
+  return d.length;
+}
 
 /* ── 3. canvas, project state ────────────────────────────────────────── */
 const canvas = new F.Canvas('cv', {
@@ -647,7 +1055,23 @@ const canvas = new F.Canvas('cv', {
 const MARK = '#FF2E88', PAPER = '#E6E7DF', RULE = '#9DA396';
 
 let P = null;                        // active project meta
-const State = { tool: 'select', snap: true, showGrid: true, space: false, panning: false };
+const State = { tool: 'select', snap: true, showGrid: true, space: false,
+                panning: false, stamp: null, calibrate: null };
+
+/* Each drawing tool carries its own styling. Change these before you draw and
+   every new shape is born with them; the panel edits this, not a shape. */
+const D = {
+  rect:    { tex: 'grass', fill: '#7B9B5C', stroke: '#41503A', sw: 1.5, smooth: false, op: 1, ls: 'solid', name: 'Area' },
+  ellipse: { tex: 'grass', fill: '#7B9B5C', stroke: '#41503A', sw: 1.5, smooth: true,  op: 1, name: 'Bed' },
+  tri:     { tex: 'grass', fill: '#7B9B5C', stroke: '#41503A', sw: 1.5, smooth: false, op: 1, ls: 'solid', name: 'Area' },
+  poly:    { tex: 'grass', fill: '#7B9B5C', stroke: '#41503A', sw: 1.5, smooth: false, op: 1, ls: 'solid', name: 'Area' },
+  path:    { stex: 'flagstone', stroke: '#9E9A90', widthFt: 4, smooth: true, op: 1, ls: 'solid', freehand: false, name: 'Pathway' },
+  line:    { stroke: '#2F3B2B', sw: 2, smooth: false, arrow: false, ls: 'solid', op: 1, name: 'Line' },
+  arrow:   { stroke: '#FF2E88', sw: 2.5, smooth: false, arrow: true, ls: 'solid', op: 1, name: 'Arrow' },
+  tree:    { fill: '#5E7F45', stroke: '#33492A', diaFt: 16, op: 1, species: 'broadleaf', name: 'Tree' },
+  label:   { fill: '#17212B', sizeFt: 2, op: 1, name: 'Label' }
+};
+const DRAWTOOLS = ['rect', 'ellipse', 'tri', 'poly', 'path', 'line', 'arrow', 'tree', 'label'];
 
 function dressControls(o) {
   o.set({
@@ -660,6 +1084,7 @@ function dressControls(o) {
 }
 function applyLock(o) {
   const L = !!o.ldLock;
+  if (o.ldKind === 'trace' && !L) o.set({ hoverCursor: 'move' });
   o.set({
     lockMovementX: L, lockMovementY: L, lockRotation: L,
     lockScalingX: L, lockScalingY: L, lockSkewingX: L, lockSkewingY: L,
@@ -667,14 +1092,23 @@ function applyLock(o) {
   });
   if (L && o.ldEditing) setEditMode(o, false);
 }
-function applyTex(o) {
+/* Fill and stroke each resolve from three possible states, in order:
+   a texture, then a plain colour, then nothing at all (transparent). */
+function paint(o) {
+  if (o.ldKind === 'label' || o.ldKind === 'trace') return;
   if (o.ldTex && TEX[o.ldTex]) o.set('fill', texPattern(o.ldTex));
+  else if (o.ldFillColor) o.set('fill', o.ldFillColor);
+  else o.set('fill', '');
   if (o.ldStrokeTex && TEX[o.ldStrokeTex]) o.set('stroke', texPattern(o.ldStrokeTex));
+  else if (o.ldStrokeColor) o.set('stroke', o.ldStrokeColor);
+  else o.set('stroke', '');
 }
+const applyTex = paint;
 function tag(o, kind) {
   if (!o.ldId) o.ldId = uid();
   if (kind) o.ldKind = kind;
   o.objectCaching = false;
+  if (o.points && o.ldKind !== 'dim') applyLineStyle(o);
   dressControls(o); applyLock(o);
   return o;
 }
@@ -848,47 +1282,82 @@ function shapePoints(kind, x, y, w, h) {
   return [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }];
 }
 
-function newArea(pts, opts) {
+function newArea(pts, key, extra) {
+  const d = D[key || 'poly'];
   const o = new LandPoly(pts, Object.assign({
-    fill: TEX.grass.swatch, stroke: '#41503A', strokeWidth: 1.5, strokeUniform: true,
-    exactBoundingBox: true, objectCaching: false, ldTex: 'grass', ldSmooth: false,
-    ldName: 'Area'
-  }, opts || {}));
-  tag(o, 'area'); applyTex(o); return o;
-}
-function newPathway(pts, opts) {
-  const o = new LandPath(pts, Object.assign({
-    fill: null, stroke: TEX.flagstone.swatch, strokeWidth: 4 * PPF,
-    strokeLineCap: 'round', strokeLineJoin: 'round', strokeUniform: false,
+    fill: '', stroke: d.stroke, strokeWidth: d.sw, strokeUniform: true, opacity: d.op,
     exactBoundingBox: true, objectCaching: false,
-    ldStrokeTex: 'flagstone', ldSmooth: true, ldWidthFt: 4, ldName: 'Pathway'
-  }, opts || {}));
-  tag(o, 'path'); applyTex(o); return o;
+    ldTex: d.tex, ldFillColor: d.fill, ldStrokeColor: d.stroke,
+    ldSmooth: !!d.smooth, ldLineStyle: d.ls || 'solid', ldHeightFt: d.ht || 0, ldName: d.name
+  }, extra || {}));
+  tag(o, 'area'); paint(o); return o;
 }
-function newTree(cx, cy, diaFt, opts) {
+function newPathway(pts, extra) {
+  const d = D.path;
+  const o = new LandPath(pts, Object.assign({
+    fill: '', stroke: d.stroke, strokeWidth: d.widthFt * PPF,
+    strokeLineCap: 'round', strokeLineJoin: 'round', strokeUniform: false,
+    exactBoundingBox: true, objectCaching: false, opacity: d.op,
+    ldStrokeTex: d.stex, ldStrokeColor: d.stroke, ldSmooth: d.smooth,
+    ldWidthFt: d.widthFt, ldLineStyle: d.ls || 'solid', ldName: d.name
+  }, extra || {}));
+  tag(o, 'path'); paint(o); return o;
+}
+function newLine(pts, key, extra) {
+  const d = D[key || 'line'];
+  const o = new LandPath(pts, Object.assign({
+    fill: '', stroke: d.stroke, strokeWidth: d.sw, strokeLineCap: 'round',
+    strokeLineJoin: 'round', strokeUniform: true, opacity: d.op,
+    exactBoundingBox: true, objectCaching: false,
+    ldStrokeColor: d.stroke, ldSmooth: !!d.smooth, ldArrow: !!d.arrow,
+    ldLineStyle: d.ls || 'solid', ldName: d.name
+  }, extra || {}));
+  tag(o, 'line'); paint(o); return o;
+}
+function newTree(cx, cy, diaFt, extra) {
+  const d = D.tree;
   const o = new Tree(Object.assign({
     left: cx, top: cy, originX: 'center', originY: 'center',
-    radius: (diaFt || 16) * PPF / 2, fill: '#5E7F45', stroke: '#33492A',
-    strokeWidth: 1.5, strokeUniform: true, objectCaching: false,
-    ldSeed: (Math.random() * 1e6) | 0, ldName: 'Tree'
-  }, opts || {}));
-  tag(o, 'tree'); return o;
+    radius: (diaFt || d.diaFt) * PPF / 2, stroke: d.stroke, strokeWidth: 1.5,
+    strokeUniform: true, objectCaching: false, opacity: d.op,
+    ldFillColor: d.fill, ldStrokeColor: d.stroke, ldSpecies: d.species || 'broadleaf',
+    ldSeed: (Math.random() * 1e6) | 0, ldName: d.name
+  }, extra || {}));
+  tag(o, 'tree'); paint(o); return o;
+}
+function newSprinkler(cx, cy, throwFt, arcDeg, extra) {
+  const o = new Sprinkler(Object.assign({
+    left: cx, top: cy, originX: 'center', originY: 'center',
+    radius: (throwFt || 12) * PPF, fill: '', stroke: '', objectCaching: false,
+    ldArc: arcDeg || 360, ldFillColor: 'rgba(74,140,190,.18)',
+    ldStrokeColor: 'rgba(32,96,146,.85)', ldName: 'Sprinkler'
+  }, extra || {}));
+  tag(o, 'head'); return o;
+}
+function newMarker(cx, cy, symbol, extra) {
+  const o = new Marker(Object.assign({
+    left: cx, top: cy, originX: 'center', originY: 'center',
+    radius: 9, fill: '', stroke: '', objectCaching: false,
+    ldSymbol: symbol || 'valve', ldFillColor: '#2F6FB0', ldName: 'Fitting'
+  }, extra || {}));
+  tag(o, 'marker'); return o;
 }
 function newLabel(x, y, text) {
+  const d = D.label;
   const o = new F.IText(text || 'Label', {
     left: x, top: y, originX: 'center', originY: 'center',
-    fontFamily: '"Barlow Semi Condensed", sans-serif', fontSize: 2 * PPF,
-    fill: '#17212B', textAlign: 'center', objectCaching: false,
-    backgroundColor: 'rgba(230,231,223,.80)', ldName: 'Label'
+    fontFamily: '"Barlow Semi Condensed", sans-serif', fontSize: d.sizeFt * PPF,
+    fill: d.fill, textAlign: 'center', objectCaching: false, opacity: d.op,
+    backgroundColor: 'rgba(230,231,223,.80)', ldFillColor: d.fill, ldName: 'Label'
   });
   tag(o, 'label'); return o;
 }
 function newBoundary() {
   const W = P.widthFt * PPF, H = P.heightFt * PPF;
   const o = new LandPoly([{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }], {
-    fill: 'rgba(0,0,0,0)', stroke: '#2F3B2B', strokeWidth: 3, strokeUniform: true,
-    strokeDashArray: [11, 7], exactBoundingBox: true, objectCaching: false,
-    ldName: 'Property boundary'
+    fill: '', stroke: '#2F3B2B', strokeWidth: 3, strokeUniform: true,
+    exactBoundingBox: true, objectCaching: false,
+    ldLineStyle: 'dashed', ldStrokeColor: '#2F3B2B', ldName: 'Property boundary'
   });
   tag(o, 'boundary'); return o;
 }
@@ -974,7 +1443,7 @@ function refreshPoly(o) {
 }
 function addPointAt(o, sx, sy) {
   const t = toPointSpace(o, sx, sy), pts = o.points, n = pts.length;
-  const segs = (o.ldKind === 'path') ? n - 1 : n;
+  const segs = isOpenShape(o) ? n - 1 : n;
   let best = 1, bd = Infinity, bp = null;
   for (let i = 0; i < segs; i++) {
     const a = pts[i], b = pts[(i + 1) % n];
@@ -989,7 +1458,7 @@ function addPointAt(o, sx, sy) {
   refreshPoly(o);
 }
 function removePoint(o, i) {
-  const min = o.ldKind === 'path' ? 2 : 3;
+  const min = isOpenShape(o) ? 2 : 3;
   if (o.points.length <= min) { toast(`This shape needs at least ${min} points.`); return; }
   o.points.splice(i, 1);
   refreshPoly(o);
@@ -1003,23 +1472,31 @@ function setTool(t) {
   cancelDraft();
   State.tool = t;
   $$('.tool').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
-  const drawing = !['select', 'pan'].includes(t);
-  canvas.selection = t === 'select';
+  const drawing = !['select', 'pan', 'library'].includes(t);
+  if (t !== 'library') State.stamp = null;
+  canvas.selection = t === 'select' || (t === 'library' && !State.stamp);
   canvas.skipTargetFind = drawing;
   canvas.defaultCursor = t === 'pan' ? 'grab' : (drawing ? 'crosshair' : 'default');
   if (drawing) canvas.discardActiveObject();
   const H = {
     poly: 'Click each corner of the area. <b>Enter</b> to close, <b>Backspace</b> to step back, <b>Esc</b> to cancel.',
-    path: 'Click each turn of the path. <b>Enter</b> to finish, <b>Backspace</b> to step back, <b>Esc</b> to cancel.',
+    path: D.path.freehand
+      ? `Set the width first, then drag to draw a ${D.path.widthFt} ft path.`
+      : 'Click each turn of the path. <b>Enter</b> to finish, <b>Backspace</b> to step back, <b>Esc</b> to cancel.',
     rect: 'Drag out a rectangle.', ellipse: 'Drag out an ellipse.', tri: 'Drag out a triangle.',
+    measure: 'Drag between two points. It leaves a dimension you can move or delete.',
+    line: 'Click each corner. <b>Enter</b> to finish, <b>Esc</b> to cancel.',
+    arrow: 'Click the start, then the tip. <b>Enter</b> to finish.',
     tree: 'Click to plant a tree. Drag its handles to change the canopy.',
+    library: State.stamp ? `Click to place <b>${State.stamp.n}</b>.` : 'Pick something from the panel on the right.',
     label: 'Click where the label goes, then type.',
-    measure: 'Drag between two points to measure. <b>Esc</b> clears it.',
     pan: 'Drag to move the view.'
   }[t];
   const h = $('#hint');
   h.style.display = H ? 'block' : 'none'; h.innerHTML = H || '';
+  canvas.skipTargetFind = drawing || (t === 'library' && !!State.stamp);
   canvas.requestRenderAll();
+  renderInspector();
 }
 function cancelDraft() {
   if (draft) { if (draft.temp) canvas.remove(draft.temp); draft = null; }
@@ -1034,6 +1511,24 @@ function ghost(pts, closed) {
     selectable: false, evented: false, excludeFromExport: true, exactBoundingBox: true
   });
   g.ldGhost = true; return g;
+}
+
+/* Ramer–Douglas–Peucker: a freehand drag lands hundreds of points; this keeps
+   only the ones that actually describe the curve. */
+function simplify(pts, tol) {
+  if (pts.length < 3) return pts;
+  const far = (a, b, q) => {
+    const dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy;
+    if (!L) return Math.hypot(q.x - a.x, q.y - a.y);
+    const u = clamp(((q.x - a.x) * dx + (q.y - a.y) * dy) / L, 0, 1);
+    return Math.hypot(q.x - (a.x + dx * u), q.y - (a.y + dy * u));
+  };
+  const rec = (s, e) => {
+    let idx = -1, mx = 0;
+    for (let i = s + 1; i < e; i++) { const d = far(pts[s], pts[e], pts[i]); if (d > mx) { mx = d; idx = i; } }
+    return mx > tol ? rec(s, idx).concat(rec(idx, e).slice(1)) : [pts[s], pts[e]];
+  };
+  return rec(0, pts.length - 1);
 }
 
 function scenePoint(opt) {
@@ -1051,7 +1546,7 @@ canvas.on('mouse:down', opt => {
   }
   const t = State.tool;
 
-  if (t === 'select') {
+  if (t === 'select' || (t === 'library' && !State.stamp)) {
     const tgt = opt.target;
     if (tgt && tgt.ldEditing && tgt.__corner && e.altKey) {
       const i = parseInt(String(tgt.__corner).replace(/\D/g, ''), 10);
@@ -1064,17 +1559,22 @@ canvas.on('mouse:down', opt => {
   if (t === 'rect' || t === 'ellipse' || t === 'tri') {
     draft = { kind: t, x, y, drag: true, temp: ghost(shapePoints(t, x, y, gridU(), gridU()), true) };
     canvas.add(draft.temp);
-  } else if (t === 'poly' || t === 'path') {
+  } else if (t === 'path' && D.path.freehand) {
+    draft = { kind: 'path', pts: [{ x: sp.x, y: sp.y }], free: true, temp: null };
+  } else if (t === 'poly' || t === 'path' || t === 'line' || t === 'arrow') {
     if (!draft) {
       draft = { kind: t, pts: [{ x, y }], temp: null };
     } else {
       const f = draft.pts[0];
       if (draft.pts.length > 2 && Math.hypot(x - f.x, y - f.y) < gridU() * .7 && t === 'poly') { commitDraft(); return; }
       draft.pts.push({ x, y });
+      if (t === 'arrow' && draft.pts.length >= 2) { commitDraft(); return; }
     }
     updateDraftGhost({ x, y });
+  } else if (t === 'library' && State.stamp) {
+    placeStamp(State.stamp, x, y);
   } else if (t === 'tree') {
-    const o = newTree(x, y, 16);
+    const o = newTree(x, y, D.tree.diaFt);
     canvas.add(o); canvas.setActiveObject(o); setTool('select'); pushHistory();
   } else if (t === 'label') {
     const o = newLabel(x, y, 'Label');
@@ -1100,6 +1600,7 @@ function updateDraftGhost(cursor) {
   const pts = cursor ? draft.pts.concat([cursor]) : draft.pts.slice();
   if (pts.length < 2) { draft.temp = null; canvas.requestRenderAll(); return; }
   draft.temp = ghost(pts, draft.kind === 'poly' && pts.length > 2);
+  if (draft.kind === 'arrow') draft.temp.ldArrow = true;
   canvas.add(draft.temp);
   canvas.requestRenderAll();
 }
@@ -1122,6 +1623,13 @@ canvas.on('mouse:move', opt => {
     draft.temp = ghost(pts, true); canvas.add(draft.temp);
     $('#stSelWrap').style.display = ''; $('#stSel').textContent = `${ft1(Math.abs(w))} × ${ft1(Math.abs(h))}`;
     canvas.requestRenderAll();
+  } else if (draft && draft.free) {
+    const last = draft.pts[draft.pts.length - 1];
+    if (Math.hypot(sp.x - last.x, sp.y - last.y) > PPF * 1.2) {
+      draft.pts.push({ x: sp.x, y: sp.y });
+      updateDraftGhost();
+    }
+    $('#stSelWrap').style.display = ''; $('#stSel').textContent = draft.pts.length + ' points';
   } else if (draft && draft.pts) {
     updateDraftGhost({ x, y });
     const a = draft.pts[draft.pts.length - 1];
@@ -1136,12 +1644,28 @@ canvas.on('mouse:move', opt => {
 
 canvas.on('mouse:up', () => {
   if (State.panning) { State.panning = false; canvas.setCursor(State.tool === 'pan' ? 'grab' : 'default'); redraw(); return; }
-  if (draft && draft.drag) commitDraft();
+  if (draft && (draft.drag || draft.free)) { commitDraft(); return; }
+  if (measure && State.calibrate) { finishCalibration(); return; }
+  if (measure) commitMeasure();
 });
+
+/* The measure tool leaves a real dimension behind, so it can be moved,
+   relabelled or deleted like anything else. */
+function commitMeasure() {
+  const m = measure;
+  const x2 = m.line.x2, y2 = m.line.y2;
+  const d = Math.hypot(x2 - m.x0, y2 - m.y0);
+  cancelDraft();
+  if (d < 4) return;
+  const o = newDim([{ x: m.x0, y: m.y0 }, { x: x2, y: y2 }]);
+  canvas.add(o);
+  canvas.requestRenderAll(); pushHistory();
+}
 
 canvas.on('mouse:dblclick', opt => {
   if (draft && draft.pts) { commitDraft(); return; }
   const t = opt.target;
+  if (t && t.ldKind === 'dim') return;
   if (t && t.points && !t.ldLock && State.tool === 'select') {
     if (!t.ldEditing) setEditMode(t, true);
     else { const sp = scenePoint(opt); addPointAt(t, sp.x, sp.y); }
@@ -1155,14 +1679,17 @@ function commitDraft() {
     const g = draft.temp;
     canvas.remove(g);
     const pts = g.points.map(p => ({ x: p.x, y: p.y }));
-    made = newArea(pts, draft.kind === 'ellipse' ? { ldSmooth: true, ldName: 'Bed' } : {});
+    made = newArea(pts, draft.kind);
     if (made.width < 4 || made.height < 4) { made = null; }
   } else if (draft.pts) {
     const need = draft.kind === 'poly' ? 3 : 2;
     if (draft.temp) canvas.remove(draft.temp);
-    const pts = draft.pts.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 1);
+    const raw = draft.free ? simplify(draft.pts, PPF * .8) : draft.pts;
+    const pts = raw.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 1);
     if (pts.length >= need) {
-      made = draft.kind === 'poly' ? newArea(pts) : newPathway(pts);
+      made = draft.kind === 'poly' ? newArea(pts, 'poly')
+           : draft.kind === 'path' ? newPathway(pts)
+           : newLine(pts, draft.kind, draft.preset ? { ldPreset: draft.preset } : null);
     }
   }
   draft = null;
@@ -1176,10 +1703,11 @@ function commitDraft() {
 
 
 /* ── 8. measurements ─────────────────────────────────────────────────── */
+const isOpenShape = o => o.ldKind === 'path' || o.ldKind === 'line' || o.ldKind === 'dim';
 function metrics(o) {
   if (o.points) {
     const p = o.points, n = p.length, sx = Math.abs(o.scaleX), sy = Math.abs(o.scaleY);
-    const closed = o.ldKind !== 'path';
+    const closed = !isOpenShape(o);
     let per = 0, a2 = 0;
     for (let i = 0; i < n; i++) {
       const A = p[i], B = p[(i + 1) % n];
@@ -1188,12 +1716,18 @@ function metrics(o) {
     }
     const len = per / PPF;
     if (closed) return { area: Math.abs(a2 / 2) / (PPF * PPF), len, kind: 'perimeter' };
+    if (o.ldKind === 'line') return { area: 0, len, kind: 'length' };
     return { area: len * (o.strokeWidth / PPF), len, kind: 'length' };
   }
   if (o.ldKind === 'tree') {
     const d = o.radius * 2 * Math.abs(o.scaleX) / PPF;
     return { area: Math.PI * d * d / 4, len: 0, dia: d, kind: 'canopy' };
   }
+  if (o.ldKind === 'head') {
+    const R = o.radius * Math.abs(o.scaleX) / PPF, arc = (o.ldArc || 360) / 360;
+    return { area: Math.PI * R * R * arc, len: 0, kind: 'spray' };
+  }
+  if (o.ldKind === 'marker') return { area: 0, len: 0, kind: 'spray' };
   const w = o.width * Math.abs(o.scaleX) / PPF, h = o.height * Math.abs(o.scaleY) / PPF;
   return { area: w * h, len: 2 * (w + h), kind: 'perimeter' };
 }
@@ -1201,19 +1735,109 @@ const num = (v, d) => (Math.round(v * Math.pow(10, d || 1)) / Math.pow(10, d || 
 
 /* ── 9. inspector ────────────────────────────────────────────────────── */
 const TEXKEYS = Object.keys(TEX);
-const KINDNAME = { area: 'Area', path: 'Pathway', tree: 'Tree', label: 'Label', boundary: 'Boundary' };
+const KINDNAME = { area: 'Area', path: 'Pathway', line: 'Line', tree: 'Tree', label: 'Label',
+                   boundary: 'Boundary', head: 'Sprinkler', marker: 'Fitting', trace: 'Traced image' };
+const TOOLNAME = { rect: 'rectangle', ellipse: 'ellipse', tri: 'triangle', poly: 'area',
+                   path: 'pathway', line: 'line', arrow: 'arrow', tree: 'tree', label: 'label' };
+const NONE_SW = 'background:repeating-linear-gradient(45deg,#1C2732 0 5px,#151E27 5px 10px)';
 
-function swatchGrid(sel, act, allowNone) {
+/* Fill and stroke both use this: transparent, a plain colour, or a texture. */
+function swatchGrid(tex, color, act) {
+  const cur = tex ? tex : (color ? '*' : '');
+  const cell = (val, style, label, title) =>
+    `<button class="sw ${cur === val ? 'on' : ''}" data-act="${act}" data-tex="${val}" title="${title}" style="${style}"><span>${label}</span></button>`;
   let h = '<div class="swatches">';
-  if (allowNone) h += `<button class="sw ${!sel ? 'on' : ''}" data-act="${act}" data-tex=""
-      style="background:repeating-linear-gradient(45deg,#1C2732 0 5px,#151E27 5px 10px)"><span>None</span></button>`;
+  h += cell('', NONE_SW, 'None', 'No fill at all — see-through');
+  h += cell('*', `background:${color || '#7B9B5C'}`, 'Solid', 'One flat colour');
   TEXKEYS.forEach(k => {
-    h += `<button class="sw ${sel === k ? 'on' : ''}" data-act="${act}" data-tex="${k}"
-      title="${TEX[k].label}" style="background-image:url(${texSwatchURL(k)});background-size:52px"><span>${TEX[k].label}</span></button>`;
+    h += cell(k, `background-image:url(${texSwatchURL(k)});background-size:52px`, TEX[k].label, TEX[k].label);
   });
   return h + '</div>';
 }
+const ftLbl = '<span style="color:var(--dimmer);font-size:11px">ft</span>';
+const lsOptions = cur => Object.keys(LINESTYLES).map(k =>
+  `<option value="${k}" ${(cur || 'solid') === k ? 'selected' : ''}>${LINESTYLES[k].n}</option>`).join('');
+const spOptions = cur => SPECIESKEYS.map(k =>
+  `<option value="${k}" ${(cur || 'broadleaf') === k ? 'selected' : ''}>${SPECIES[k].n}</option>`).join('');
+const lsRow = a => `<div class="row"><label>Line style</label><select class="fld" id="oLS">${lsOptions(a.ldLineStyle)}</select></div>`;
 
+/* ── the panel shown while a drawing tool is armed ─────────────────────── */
+function toolPanel(t) {
+  const d = D[t], area = ['rect', 'ellipse', 'tri', 'poly'].includes(t), isLine = t === 'line' || t === 'arrow';
+  let h = `<div class="sect">
+    <div class="row" style="margin-bottom:9px"><span class="chip">New ${TOOLNAME[t]}</span></div>
+    <div style="font-size:12px;color:var(--dimmer);line-height:1.45">Set it up here, then draw. Everything you draw with this tool picks these up.</div>
+  </div>`;
+
+  if (area) {
+    h += `<div class="sect"><h3>Fill</h3>${swatchGrid(d.tex, d.fill, 'dTex')}
+      <div class="row" style="margin-top:9px"><label>Colour</label><input type="color" id="dFill" value="${d.fill || '#7B9B5C'}"></div></div>
+      <div class="sect"><h3>Outline</h3>
+      <div class="row"><label>Colour</label><input type="color" id="dStroke" value="${d.stroke}">
+        <input class="fld" id="dSW" type="number" min="0" step="0.5" value="${d.sw}" style="width:56px"></div>
+      <div class="row"><label>Line style</label><select class="fld" id="dLS">${lsOptions(d.ls)}</select></div>
+      <div class="row"><button class="btn ${d.smooth ? 'on' : ''}" data-act="dSmooth">${d.smooth ? 'Curved edges' : 'Straight edges'}</button></div>
+      <div class="row"><label>Opacity</label><input type="range" id="dOp" min="10" max="100" value="${Math.round(d.op * 100)}"></div></div>`;
+  } else if (t === 'path') {
+    h += `<div class="sect"><h3>Surface</h3>${swatchGrid(d.stex, d.stroke, 'dStex')}
+      <div class="row" style="margin-top:9px"><label>Colour</label><input type="color" id="dStroke" value="${d.stroke}"></div>
+      <div class="row"><label>Width</label><input class="fld" id="dPW" type="number" min="0.5" step="0.5" value="${d.widthFt}">${ftLbl}</div>
+      <div class="row"><label>Line style</label><select class="fld" id="dLS">${lsOptions(d.ls)}</select></div>
+      <div class="grid2" style="margin-bottom:7px">
+        <button class="btn ${!d.freehand ? 'on' : ''}" data-act="dClick">Click corners</button>
+        <button class="btn ${d.freehand ? 'on' : ''}" data-act="dFree">Drag freehand</button></div>
+      <div class="row"><button class="btn ${d.smooth ? 'on' : ''}" data-act="dSmooth">${d.smooth ? 'Curved' : 'Straight'}</button></div>
+      <div class="row"><label>Opacity</label><input type="range" id="dOp" min="10" max="100" value="${Math.round(d.op * 100)}"></div></div>`;
+  } else if (isLine) {
+    h += `<div class="sect"><h3>Stroke</h3>
+      <div class="row"><label>Colour</label><input type="color" id="dStroke" value="${d.stroke}">
+        <input class="fld" id="dSW" type="number" min="0.5" step="0.5" value="${d.sw}" style="width:56px"></div>
+      <div class="row"><label>Line style</label><select class="fld" id="dLS">${lsOptions(d.ls)}</select></div>
+      <div class="row"><button class="btn ${d.arrow ? 'on' : ''}" data-act="dArrow">${d.arrow ? 'Arrowhead' : 'No head'}</button></div>
+      <div class="row"><button class="btn ${d.smooth ? 'on' : ''}" data-act="dSmooth">${d.smooth ? 'Curved' : 'Straight'}</button></div>
+      <div class="row"><label>Opacity</label><input type="range" id="dOp" min="10" max="100" value="${Math.round(d.op * 100)}"></div></div>`;
+  } else if (t === 'tree') {
+    h += `<div class="sect"><h3>Canopy</h3>
+      <div class="row"><label>Colour</label><input type="color" id="dFill" value="${d.fill}"></div>
+      <div class="row"><label>Outline</label><input type="color" id="dStroke" value="${d.stroke}"></div>
+      <div class="row"><label>Diameter</label><input class="fld" id="dDia" type="number" min="1" step="1" value="${d.diaFt}">${ftLbl}</div>
+      <div class="row"><label>Kind</label><select class="fld" id="dSpecies">${spOptions(d.species)}</select></div></div>`;
+  } else if (t === 'label') {
+    h += `<div class="sect"><h3>Text</h3>
+      <div class="row"><label>Colour</label><input type="color" id="dFill" value="${d.fill}"></div>
+      <div class="row"><label>Height</label><input class="fld" id="dFS" type="number" min="0.25" step="0.25" value="${d.sizeFt}">${ftLbl}</div></div>`;
+  }
+  return h;
+}
+
+/* ── the library ───────────────────────────────────────────────────────── */
+function libraryPanel() {
+  let h = `<div class="sect">
+    <div class="row" style="margin-bottom:9px"><span class="chip">Library</span>
+      <span style="flex:1"></span>
+      ${State.stamp ? `<button class="btn" data-act="clearStamp" style="flex:none;padding:3px 10px">Clear</button>` : ''}
+    </div>
+    <div style="font-size:12px;color:var(--dimmer);line-height:1.45">
+      ${State.stamp ? `Click the plan to place <b style="color:var(--mark)">${esc(State.stamp.n)}</b>. It stays armed, so you can drop several.`
+                    : 'Pick an item. Things you place get stamped down; surfaces and lines arm the matching tool.'}
+    </div></div>`;
+  LIB.forEach(group => {
+    h += `<div class="sect"><h3>${group.g}</h3>`;
+    group.items.forEach((it, i) => {
+      const on = State.stamp && State.stamp.n === it.n;
+      h += `<button class="btn libitem ${on ? 'on' : ''}" data-act="pick" data-g="${esc(group.g)}" data-i="${i}"
+        style="width:100%;display:flex;align-items:center;gap:9px;text-align:left;margin-bottom:5px">
+        <span class="dot" style="background:${it.sw || '#7B9B5C'}"></span>
+        <span style="flex:1">${esc(it.n)}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--dimmer)">${esc(it.note || '')}</span>
+      </button>`;
+    });
+    h += `</div>`;
+  });
+  return h;
+}
+
+/* ── main render ───────────────────────────────────────────────────────── */
 function renderInspector() {
   const insp = $('#insp'), a = canvas.getActiveObject();
   const sel = canvas.getActiveObjects();
@@ -1221,31 +1845,97 @@ function renderInspector() {
   const plotSect = P ? `
     <div class="sect">
       <h3>Plot</h3>
-      <div class="row"><label>Width</label><input class="fld" id="pW" type="number" min="4" step="1" value="${P.widthFt}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
-      <div class="row"><label>Depth</label><input class="fld" id="pH" type="number" min="4" step="1" value="${P.heightFt}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
-      <div class="row"><label>Grid spacing</label><input class="fld" id="pG" type="number" min="0.25" step="0.25" value="${P.gridFt}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
+      <div class="row"><label>Width</label><input class="fld" id="pW" type="number" min="4" step="1" value="${P.widthFt}">${ftLbl}</div>
+      <div class="row"><label>Depth</label><input class="fld" id="pH" type="number" min="4" step="1" value="${P.heightFt}">${ftLbl}</div>
+      <div class="row"><label>Grid spacing</label><input class="fld" id="pG" type="number" min="0.25" step="0.25" value="${P.gridFt}">${ftLbl}</div>
       <div class="row"><button class="btn" id="pReset">Reset boundary to plot</button></div>
       <div class="readout"><span>Plot area</span><b>${num(P.widthFt * P.heightFt, 0)} sq ft</b></div>
     </div>` : '';
 
+  if (State.tool === 'library') { insp.innerHTML = libraryPanel(); wireAll(null); return; }
+  if (!a && DRAWTOOLS.includes(State.tool)) { insp.innerHTML = toolPanel(State.tool) + plotSect; wireAll(null); return; }
+
   if (!a) {
     insp.innerHTML = plotSect + `<div class="empty">Nothing selected.<br>Pick a tool on the left, or click a shape to change it.</div>`;
     $('#stSelWrap').style.display = 'none';
-    wirePlot(); return;
-  }
-  if (sel.length > 1) {
-    insp.innerHTML = `<div class="sect"><h3>Selection</h3>
-      <div class="readout"><span>Objects</span><b>${sel.length}</b></div>
-      <div class="row" style="margin-top:9px"><button class="btn" data-act="lockAll">Lock all</button><button class="btn" data-act="unlockAll">Unlock all</button></div>
-      <div class="row"><button class="btn" data-act="dup">Duplicate</button><button class="btn warn" data-act="del">Delete</button></div>
-    </div>` + plotSect;
-    $('#stSelWrap').style.display = '';
-    $('#stSel').textContent = sel.length + ' objects';
-    wirePlot(); return;
+    wireAll(null); return;
   }
 
-  const m = metrics(a), k = a.ldKind || 'shape';
-  const isPoly = !!a.points, isPath = k === 'path', isTree = k === 'tree', isLabel = k === 'label';
+  if (sel.length > 1) {
+    const c0 = colorOf(sel[0].ldFillColor, '#7B9B5C');
+    insp.innerHTML = `<div class="sect">
+        <div class="row" style="margin-bottom:9px"><span class="chip">${sel.length} selected</span></div>
+      </div>
+      <div class="sect"><h3>Fill — applies to all</h3>${swatchGrid(null, c0, 'mTex')}
+        <div class="row" style="margin-top:9px"><label>Colour</label><input type="color" id="mFill" value="${c0}"></div>
+      </div>
+      <div class="sect"><h3>Outline — applies to all</h3>
+        <div class="row"><label>Colour</label><input type="color" id="mStroke" value="${colorOf(sel[0].ldStrokeColor, '#41503A')}"></div>
+        <div class="row"><label>Opacity</label><input type="range" id="mOp" min="10" max="100" value="${Math.round((sel[0].opacity || 1) * 100)}"></div>
+      </div>
+      <div class="sect"><h3>Actions</h3>
+        <div class="grid2" style="margin-bottom:7px"><button class="btn" data-act="lockAll">Lock all</button><button class="btn" data-act="unlockAll">Unlock all</button></div>
+        <div class="grid2"><button class="btn" data-act="dup">Duplicate</button><button class="btn warn" data-act="del">Delete</button></div>
+      </div>` + plotSect;
+    $('#stSelWrap').style.display = '';
+    $('#stSel').textContent = sel.length + ' objects';
+    wireAll(a); return;
+  }
+
+  const k = a.ldKind || 'shape';
+
+  if (k === 'trace') {
+    insp.innerHTML = `<div class="sect">
+        <div class="row" style="margin-bottom:9px"><span class="chip ${a.ldLock ? 'locked' : ''}">${a.ldLock ? 'Locked' : 'Traced image'}</span>
+          <span style="flex:1"></span>
+          <button class="btn" data-act="lock" style="flex:none;padding:3px 10px">${a.ldLock ? 'Unlock' : 'Unlock to move'}</button></div>
+        <div class="row"><label>Fade</label><input type="range" id="oOp" min="5" max="100" value="${Math.round(a.opacity * 100)}"></div>
+        <div class="readout"><span>Scale</span><b>${num(a.width * a.scaleX / PPF)} ft wide</b></div>
+      </div>
+      <div class="sect"><h3>Match it to the plot</h3>
+        <div class="row"><button class="btn ${State.calibrate ? 'on' : ''}" data-act="calib">${State.calibrate ? 'Now drag along it…' : 'Set scale from a known distance'}</button></div>
+        <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">
+          Drag along something you know the real length of — a wall, a driveway — then type that length. The image resizes to match.</div>
+      </div>
+      <div class="sect"><h3>Actions</h3>
+        <div class="grid2" style="margin-bottom:7px"><button class="btn" data-act="back">Send to back</button><button class="btn" data-act="front">Bring forward</button></div>
+        <div class="row"><button class="btn warn" data-act="del">Remove image</button></div>
+      </div>` + plotSect;
+    $('#stSelWrap').style.display = '';
+    $('#stSel').textContent = 'traced image';
+    wireAll(a); return;
+  }
+
+  if (k === 'dim') {
+    insp.innerHTML = `<div class="sect">
+        <div class="row" style="margin-bottom:9px">
+          <span class="chip ${a.ldLock ? 'locked' : ''}">${a.ldLock ? 'Locked' : 'Dimension'}</span>
+          <span style="flex:1"></span>
+          <button class="btn" data-act="lock" style="flex:none;padding:3px 10px">${a.ldLock ? 'Unlock' : 'Lock'}</button></div>
+        <div class="readout"><span>Measures</span><b>${ft(dimLength(a), true)}</b></div>
+        <div class="readout"><span>In feet</span><b>${num(dimLength(a) / PPF)} ft</b></div>
+        <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block;margin-top:7px">
+          Drag either end to re-measure. Drag the middle handle to move the number.</div>
+      </div>
+      <div class="sect"><h3>Number</h3>
+        <div class="row"><input class="fld" id="oDTxt" value="${esc(a.ldText || '')}" style="width:100%;text-align:left" placeholder="${esc(dimText(a))}"></div>
+        <div class="row" style="font-size:12px;color:var(--dimmer);display:block">Leave empty to keep the measured length.</div>
+        <div class="row"><label>Size</label><input class="fld" id="oDFont" type="number" min="0.25" step="0.25" value="${num(a.ldFontFt || 1.4)}">${ftLbl}</div>
+        <div class="row"><label>Colour</label><input type="color" id="oDCol" value="${colorOf(a.ldStrokeColor, '#B0316B')}"></div>
+        <div class="row"><label>Line width</label><input class="fld" id="oSW" type="number" min="0.5" step="0.5" value="${num(a.strokeWidth)}"></div>
+        <div class="row"><button class="btn" data-act="dimCentre">Put the number back on the line</button></div>
+      </div>
+      <div class="sect"><h3>Actions</h3>
+        <div class="grid2"><button class="btn" data-act="dup">Duplicate</button><button class="btn warn" data-act="del">Delete</button></div>
+      </div>` + plotSect;
+    $('#stSelWrap').style.display = '';
+    $('#stSel').textContent = 'dimension · ' + ft(dimLength(a), true);
+    wireAll(a); return;
+  }
+
+  const m = metrics(a);
+  const isPoly = !!a.points, isPath = k === 'path', isLine = k === 'line',
+        isTree = k === 'tree', isLabel = k === 'label', isHead = k === 'head', isMarker = k === 'marker';
   const myLabel = objects().find(o => o.ldLabelFor === a.ldId);
 
   let h = `<div class="sect">
@@ -1254,9 +1944,10 @@ function renderInspector() {
       <span style="flex:1"></span>
       <button class="btn" data-act="lock" style="flex:none;padding:3px 10px">${a.ldLock ? 'Unlock' : 'Lock'}</button>
     </div>
-    <div class="row"><input class="fld" id="oName" value="${(a.ldName || '').replace(/"/g, '&quot;')}" style="width:100%;text-align:left" placeholder="Name this ${(KINDNAME[k] || 'shape').toLowerCase()}"></div>
-    ${isLabel ? '' : `<div class="readout"><span>${m.kind === 'canopy' ? 'Canopy' : 'Area'}</span><b>${num(m.area, 0)} sq ft</b></div>`}
+    <div class="row"><input class="fld" id="oName" value="${esc(a.ldName || '')}" style="width:100%;text-align:left" placeholder="Name it"></div>
+    ${(isLabel || isMarker || !m.area) ? '' : `<div class="readout"><span>${m.kind === 'canopy' ? 'Canopy' : m.kind === 'spray' ? 'Watered' : 'Area'}</span><b>${num(m.area, 0)} sq ft</b></div>`}
     ${(m.len && !isLabel) ? `<div class="readout"><span>${m.kind === 'length' ? 'Length' : 'Perimeter'}</span><b>${num(m.len)} ft</b></div>` : ''}
+    ${isHead ? `<div class="readout"><span>Throw</span><b>${num(a.radius * Math.abs(a.scaleX) / PPF)} ft</b></div>` : ''}
     ${isPoly ? `<div class="readout"><span>Points</span><b>${a.points.length}</b></div>` : ''}
   </div>`;
 
@@ -1268,53 +1959,80 @@ function renderInspector() {
           Double-click the outline to add a point. <kbd>Alt</kbd>+click a point to remove it.</div>
         <div class="row"><button class="btn ${a.ldSmooth ? 'on' : ''}" data-act="smooth">${a.ldSmooth ? 'Curved edges' : 'Straight edges'}</button></div>`;
     }
-    if (isPath) h += `<div class="row"><label>Path width</label><input class="fld" id="oPW" type="number" min="0.5" step="0.5" value="${num(a.strokeWidth / PPF)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>`;
-    if (isTree) h += `<div class="row"><label>Canopy</label><input class="fld" id="oDia" type="number" min="1" step="1" value="${num(m.dia, 0)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
-      <div class="row"><button class="btn" data-act="reseed">New canopy shape</button></div>`;
-    if (isLabel) h += `<div class="row"><label>Text size</label><input class="fld" id="oFS" type="number" min="0.5" step="0.25" value="${num(a.fontSize / PPF)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>`;
-    h += `<div class="row"><label>Rotation</label><input class="fld" id="oRot" type="number" step="1" value="${Math.round(a.angle)}"><span style="color:var(--dimmer);font-size:11px">°</span></div>
-      <div class="row"><label>Slant across</label><input type="range" id="oSkX" min="-60" max="60" step="1" value="${Math.round(a.skewX)}"></div>
-      <div class="row"><label>Slant down</label><input type="range" id="oSkY" min="-60" max="60" step="1" value="${Math.round(a.skewY)}"></div>
-      </div>`;
+    if (isLine) h += `<div class="row"><button class="btn ${a.ldArrow ? 'on' : ''}" data-act="arrow">${a.ldArrow ? 'Arrowhead' : 'No head'}</button></div>`;
+    if (isPath) h += `<div class="row"><label>Path width</label><input class="fld" id="oPW" type="number" min="0.5" step="0.5" value="${num(a.strokeWidth / PPF)}">${ftLbl}</div>`;
+    if (isTree) h += `<div class="row"><label>Kind</label><select class="fld" id="oSpecies">${spOptions(a.ldSpecies)}</select></div>
+      <div class="row"><label>Canopy</label><input class="fld" id="oDia" type="number" min="1" step="1" value="${num(m.dia, 0)}">${ftLbl}</div>
+      <div class="row"><button class="btn" data-act="reseed">Vary the shape</button></div>`;
+    if (isPoly && !isPath && !isLine) h += `<div class="row"><label>Height for 3D</label><input class="fld" id="oHt" type="number" min="0" step="0.5" value="${num(a.ldHeightFt || 0)}">${ftLbl}</div>
+      <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">Leave at 0 for flat ground. Give a building, wall or hedge a height and it stands up in the 3D view.</div>`;
+    if (isHead) h += `<div class="row"><label>Throw</label><input class="fld" id="oThrow" type="number" min="1" step="1" value="${num(a.radius * Math.abs(a.scaleX) / PPF, 0)}">${ftLbl}</div>
+      <div class="row"><label>Spray arc</label><select class="fld" id="oArc">
+        ${[90, 120, 180, 270, 360].map(v => `<option value="${v}" ${(a.ldArc || 360) === v ? 'selected' : ''}>${v}°</option>`).join('')}</select></div>`;
+    if (isMarker) h += `<div class="row"><label>Symbol</label><select class="fld" id="oSym">
+        ${[['valve', 'Valve'], ['bib', 'Hose bib'], ['tee', 'Tee'], ['meter', 'Meter']].map(([v, t]) => `<option value="${v}" ${(a.ldSymbol || 'valve') === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
+    if (isLabel) h += `<div class="row"><label>Text size</label><input class="fld" id="oFS" type="number" min="0.25" step="0.25" value="${num(a.fontSize / PPF)}">${ftLbl}</div>`;
+    if (!isHead && !isMarker) h += `<div class="row"><label>Rotation</label><input class="fld" id="oRot" type="number" step="1" value="${Math.round(a.angle)}"><span style="color:var(--dimmer);font-size:11px">°</span></div>`;
+    else if (isHead) h += `<div class="row"><label>Aimed at</label><input class="fld" id="oRot" type="number" step="5" value="${Math.round(a.angle)}"><span style="color:var(--dimmer);font-size:11px">°</span></div>`;
+    if (!isHead && !isMarker) h += `<div class="row"><label>Slant across</label><input type="range" id="oSkX" min="-60" max="60" step="1" value="${Math.round(a.skewX)}"></div>
+      <div class="row"><label>Slant down</label><input type="range" id="oSkY" min="-60" max="60" step="1" value="${Math.round(a.skewY)}"></div>`;
+    h += `</div>`;
 
-    h += `<div class="sect"><h3>Position</h3>
-      <div class="row"><label>From left</label><input class="fld" id="oX" type="number" step="0.5" value="${num(a.left / PPF)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
-      <div class="row"><label>From top</label><input class="fld" id="oY" type="number" step="0.5" value="${num(a.top / PPF)}"><span style="color:var(--dimmer);font-size:11px">ft</span></div>
+    h += `<div class="sect"><h3>Size and position</h3>
+      <div class="row"><label>Width</label><input class="fld" id="oW" type="number" min="0.25" step="0.5" value="${num(a.getScaledWidth() / PPF)}">${ftLbl}</div>
+      <div class="row"><label>Height</label><input class="fld" id="oH" type="number" min="0.25" step="0.5" value="${num(a.getScaledHeight() / PPF)}">${ftLbl}</div>
+      <div class="row"><label>From left</label><input class="fld" id="oX" type="number" step="0.5" value="${num(a.left / PPF)}">${ftLbl}</div>
+      <div class="row"><label>From top</label><input class="fld" id="oY" type="number" step="0.5" value="${num(a.top / PPF)}">${ftLbl}</div>
     </div>`;
 
-    if (!isLabel) {
-      const fillTex = a.ldTex, strokeTex = a.ldStrokeTex;
-      if (isPath) {
-        h += `<div class="sect"><h3>Surface</h3>${swatchGrid(strokeTex, 'stex', true)}
-          <div class="row" style="margin-top:9px"><label>Plain colour</label><input type="color" id="oStroke" value="${colorOf(a.stroke, '#9E9A90')}"></div>
-        </div>`;
-      } else {
-        h += `<div class="sect"><h3>Surface</h3>${swatchGrid(fillTex, 'ftex', true)}
-          <div class="row" style="margin-top:9px"><label>Plain colour</label><input type="color" id="oFill" value="${colorOf(a.fill, '#7B9B5C')}"></div>
-          <div class="row"><label>Opacity</label><input type="range" id="oOp" min="10" max="100" value="${Math.round(a.opacity * 100)}"></div>
-          <div class="row"><label>Outline</label><input type="color" id="oStroke" value="${colorOf(a.stroke, '#41503A')}">
-            <input class="fld" id="oSW" type="number" min="0" step="0.5" value="${num(a.strokeWidth)}" style="width:56px"></div>
-        </div>`;
-      }
-    } else {
+    if (isPath) {
+      h += `<div class="sect"><h3>Surface</h3>${swatchGrid(a.ldStrokeTex, colorOf(a.ldStrokeColor, '#9E9A90'), 'stex')}
+        <div class="row" style="margin-top:9px"><label>Colour</label><input type="color" id="oStroke" value="${colorOf(a.ldStrokeColor, '#9E9A90')}"></div>
+        ${lsRow(a)}
+        <div class="row"><label>Opacity</label><input type="range" id="oOp" min="10" max="100" value="${Math.round(a.opacity * 100)}"></div></div>`;
+    } else if (isLabel) {
       h += `<div class="sect"><h3>Look</h3>
         <div class="row"><label>Text colour</label><input type="color" id="oFill" value="${colorOf(a.fill, '#17212B')}"></div>
+        <div class="row"><label>Opacity</label><input type="range" id="oOp" min="10" max="100" value="${Math.round(a.opacity * 100)}"></div></div>`;
+    } else if (isLine) {
+      h += `<div class="sect"><h3>Colour</h3>
+        <div class="row"><label>Line</label><input type="color" id="oStroke" value="${colorOf(a.ldStrokeColor, '#2F3B2B')}">
+          <input class="fld" id="oSW" type="number" min="0.5" step="0.5" value="${num(a.strokeWidth)}" style="width:56px"></div>
+        ${lsRow(a)}
+        <div class="row"><label>Opacity</label><input type="range" id="oOp" min="10" max="100" value="${Math.round(a.opacity * 100)}"></div></div>`;
+    } else if (isHead || isMarker) {
+      h += `<div class="sect"><h3>Colour</h3>
+        <div class="row"><label>${isHead ? 'Spray' : 'Symbol'}</label><input type="color" id="oFillRaw" value="${colorOf(a.ldFillColor, '#2F6FB0')}"></div>
+        <div class="row"><label>Opacity</label><input type="range" id="oOp" min="10" max="100" value="${Math.round(a.opacity * 100)}"></div></div>`;
+    } else {
+      h += `<div class="sect"><h3>Fill</h3>${swatchGrid(a.ldTex, colorOf(a.ldFillColor, '#7B9B5C'), 'ftex')}
+        <div class="row" style="margin-top:9px"><label>Colour</label><input type="color" id="oFill" value="${colorOf(a.ldFillColor, '#7B9B5C')}"></div>
         <div class="row"><label>Opacity</label><input type="range" id="oOp" min="10" max="100" value="${Math.round(a.opacity * 100)}"></div>
+        <div class="row"><label>Outline</label><input type="color" id="oStroke" value="${colorOf(a.ldStrokeColor, '#41503A')}">
+          <input class="fld" id="oSW" type="number" min="0" step="0.5" value="${num(a.strokeWidth)}" style="width:56px"></div>
+        ${lsRow(a)}
       </div>`;
     }
   }
 
   h += `<div class="sect"><h3>Actions</h3>`;
   if (!isLabel) h += `<div class="row"><button class="btn" data-act="label">${myLabel ? 'Select its label' : 'Add a label'}</button></div>`;
-  h += `<div class="grid2" style="margin-bottom:7px">
+  if (isPoly) {
+    const hasDims = dimsFor(a.ldId).length;
+    h += `<div class="row"><button class="btn ${hasDims ? 'on' : ''}" data-act="dims">${hasDims ? 'Redraw side lengths' : 'Show length of each side'}</button></div>`;
+    if (hasDims) h += `<div class="row"><button class="btn warn" data-act="undims">Remove side lengths</button></div>`;
+  }
+  h += `<div class="row"><button class="btn" data-act="same">Select every ${(KINDNAME[k] || 'shape').toLowerCase()}</button></div>
+    <div class="grid2" style="margin-bottom:7px">
       <button class="btn" data-act="back">Send back</button><button class="btn" data-act="front">Bring forward</button></div>
     <div class="grid2"><button class="btn" data-act="dup">Duplicate</button><button class="btn warn" data-act="del">Delete</button></div>
   </div>` + plotSect;
 
   insp.innerHTML = h;
   $('#stSelWrap').style.display = '';
-  $('#stSel').textContent = `${a.ldName || KINDNAME[k] || 'shape'} · ${num(m.area, 0)} sq ft`;
-  wireInspector(a); wirePlot();
+  $('#stSel').textContent = `${a.ldName || KINDNAME[k] || 'shape'}`
+    + (m.area ? ` · ${num(m.area, 0)} sq ft` : (m.len ? ` · ${num(m.len)} ft` : ''));
+  wireAll(a);
 }
 
 function colorOf(v, dflt) {
@@ -1337,33 +2055,74 @@ function wirePlot() {
   });
 }
 
-function wireInspector(a) {
-  const insp = $('#insp');
-  const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
-  const done = (structural) => { a.setCoords(); canvas.requestRenderAll(); pushHistory(); if (structural) renderInspector(); };
+function wireAll(a) { wirePlot(); wireActions(a); wireFields(a); }
 
-  insp.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+function wireActions(a) {
+  $('#insp').querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
     const act = b.dataset.act, tex = b.dataset.tex;
     const many = canvas.getActiveObjects();
+    const done = st => { if (a) a.setCoords(); canvas.requestRenderAll(); pushHistory(); if (st) renderInspector(); };
+
+    /* tool defaults */
+    if (act === 'dTex') { const d = D[State.tool]; d.tex = tex === '*' ? null : (tex || null); if (tex === '') d.fill = null; else if (tex === '*' && !d.fill) d.fill = '#7B9B5C'; renderInspector(); return; }
+    if (act === 'dStex') { const d = D.path; d.stex = tex === '*' ? null : (tex || null); renderInspector(); return; }
+    if (act === 'dSmooth') { D[State.tool].smooth = !D[State.tool].smooth; renderInspector(); return; }
+    if (act === 'dArrow') { D[State.tool].arrow = !D[State.tool].arrow; renderInspector(); return; }
+    if (act === 'dFree') { D.path.freehand = true; renderInspector(); setTool('path'); return; }
+    if (act === 'dClick') { D.path.freehand = false; renderInspector(); setTool('path'); return; }
+    if (act === 'pick') { pickPreset(b.dataset.g, +b.dataset.i); return; }
+    if (act === 'clearStamp') { State.stamp = null; canvas.skipTargetFind = false; setTool('library'); return; }
+
+    /* many at once */
+    if (act === 'mTex') {
+      many.forEach(o => {
+        if (o.ldKind === 'label' || o.ldKind === 'trace') return;
+        if (o.ldKind === 'path' || o.ldKind === 'line') { o.ldStrokeTex = tex === '*' ? null : (tex || null); if (tex === '') o.ldStrokeColor = null; }
+        else { o.ldTex = tex === '*' ? null : (tex || null); if (tex === '') o.ldFillColor = null; else if (tex === '*' && !o.ldFillColor) o.ldFillColor = '#7B9B5C'; }
+        paint(o);
+      });
+      done(true); return;
+    }
+
     switch (act) {
       case 'lock': a.ldLock = !a.ldLock; applyLock(a); done(true); break;
       case 'lockAll': many.forEach(o => { o.ldLock = true; applyLock(o); }); done(true); break;
       case 'unlockAll': many.forEach(o => { o.ldLock = false; applyLock(o); }); done(true); break;
       case 'edit': setEditMode(a, !a.ldEditing); break;
       case 'smooth': a.ldSmooth = !a.ldSmooth; a.dirty = true; done(true); break;
+      case 'arrow': a.ldArrow = !a.ldArrow; a.dirty = true; done(true); break;
       case 'reseed': a.ldSeed = (Math.random() * 1e6) | 0; a.__s = null; a.dirty = true; done(false); break;
+      case 'dims': {
+        const c = addDimensions(a, true);
+        toast(c ? `${c} side${c > 1 ? 's' : ''} measured.` : 'No sides long enough to measure.');
+        pushHistory(); renderInspector(); break;
+      }
+      case 'undims': removeDimensions(a); pushHistory(); renderInspector(); break;
+      case 'dimCentre': a.ldTxt = { x: 0, y: 0 }; done(false); break;
+      case 'calib': startCalibration(a); break;
       case 'ftex':
-        a.ldTex = tex || null;
-        a.set('fill', tex ? texPattern(tex) : colorOf(a.fill, '#7B9B5C'));
-        done(true); break;
+        a.ldTex = tex === '*' ? null : (tex || null);
+        if (tex === '') a.ldFillColor = null;
+        else if (tex === '*' && !a.ldFillColor) a.ldFillColor = '#7B9B5C';
+        paint(a); done(true); break;
       case 'stex':
-        a.ldStrokeTex = tex || null;
-        a.set('stroke', tex ? texPattern(tex) : colorOf(a.stroke, '#9E9A90'));
-        done(true); break;
+        a.ldStrokeTex = tex === '*' ? null : (tex || null);
+        if (tex === '') a.ldStrokeColor = null;
+        else if (tex === '*' && !a.ldStrokeColor) a.ldStrokeColor = '#9E9A90';
+        paint(a); done(true); break;
       case 'back': many.forEach(o => canvas.sendObjectBackwards(o)); done(false); break;
       case 'front': many.forEach(o => canvas.bringObjectForward(o)); done(false); break;
       case 'dup': duplicate(); break;
       case 'del': deleteSelection(); break;
+      case 'same': {
+        const kind = a.ldKind;
+        const all = objects().filter(o => o.ldKind === kind && !o.ldLock);
+        canvas.discardActiveObject();
+        if (all.length > 1) canvas.setActiveObject(new F.ActiveSelection(all, { canvas }));
+        else if (all.length) canvas.setActiveObject(all[0]);
+        canvas.requestRenderAll(); renderInspector();
+        break;
+      }
       case 'label': {
         const ex = objects().find(o => o.ldLabelFor === a.ldId);
         if (ex) { canvas.setActiveObject(ex); canvas.requestRenderAll(); return; }
@@ -1375,6 +2134,47 @@ function wireInspector(a) {
       }
     }
   }));
+}
+
+function wireFields(a) {
+  const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+  const done = st => { if (a) a.setCoords(); canvas.requestRenderAll(); pushHistory(); if (st) renderInspector(); };
+  const many = () => canvas.getActiveObjects();
+
+  /* tool defaults */
+  on('#dFill', 'input', e => { const d = D[State.tool]; d.fill = e.target.value; if (State.tool !== 'tree' && State.tool !== 'label') d.tex = null; });
+  on('#dFill', 'change', renderInspector);
+  on('#dStroke', 'input', e => { D[State.tool].stroke = e.target.value; if (State.tool === 'path') D.path.stex = null; });
+  on('#dStroke', 'change', renderInspector);
+  on('#dSW', 'change', e => { D[State.tool].sw = clamp(+e.target.value || 1, 0, 200); });
+  on('#dPW', 'change', e => { D.path.widthFt = clamp(+e.target.value || 4, .5, 200); });
+  on('#dDia', 'change', e => { D.tree.diaFt = clamp(+e.target.value || 16, 1, 400); });
+  on('#dFS', 'change', e => { D.label.sizeFt = clamp(+e.target.value || 2, .25, 60); });
+  on('#dOp', 'input', e => { D[State.tool].op = +e.target.value / 100; });
+  on('#dLS', 'change', e => { D[State.tool].ls = e.target.value; });
+  on('#dSpecies', 'change', e => { D.tree.species = e.target.value; });
+
+  /* many at once */
+  on('#mFill', 'input', e => {
+    many().forEach(o => {
+      if (o.ldKind === 'label') { o.set('fill', e.target.value); o.ldFillColor = e.target.value; return; }
+      if (o.ldKind === 'trace') return;
+      if (o.ldKind === 'path' || o.ldKind === 'line') { o.ldStrokeTex = null; o.ldStrokeColor = e.target.value; }
+      else { o.ldTex = null; o.ldFillColor = e.target.value; }
+      paint(o);
+    });
+    canvas.requestRenderAll();
+  });
+  on('#mFill', 'change', () => done(false));
+  on('#mStroke', 'input', e => {
+    many().forEach(o => { if (o.ldKind === 'trace') return; o.ldStrokeTex = null; o.ldStrokeColor = e.target.value; paint(o); });
+    canvas.requestRenderAll();
+  });
+  on('#mStroke', 'change', () => done(false));
+  on('#mOp', 'input', e => { many().forEach(o => o.set('opacity', +e.target.value / 100)); canvas.requestRenderAll(); });
+  on('#mOp', 'change', () => done(false));
+
+  if (!a) return;
 
   on('#oName', 'change', e => { a.ldName = e.target.value; done(false); renderInspector(); });
   on('#oRot', 'change', e => { a.rotate(+e.target.value || 0); done(false); });
@@ -1382,23 +2182,48 @@ function wireInspector(a) {
   on('#oSkY', 'input', e => { a.set('skewY', +e.target.value); a.setCoords(); canvas.requestRenderAll(); });
   on('#oSkX', 'change', () => done(false));
   on('#oSkY', 'change', () => done(false));
+  on('#oW', 'change', e => {
+    const t = clamp(+e.target.value || 1, .1, 6000) * PPF, cur = a.getScaledWidth();
+    if (cur > 0) a.set('scaleX', a.scaleX * (t / cur));
+    done(true);
+  });
+  on('#oH', 'change', e => {
+    const t = clamp(+e.target.value || 1, .1, 6000) * PPF, cur = a.getScaledHeight();
+    if (cur > 0) a.set('scaleY', a.scaleY * (t / cur));
+    done(true);
+  });
+  on('#oLS', 'change', e => { a.ldLineStyle = e.target.value; applyLineStyle(a); done(true); });
+  on('#oSpecies', 'change', e => { a.ldSpecies = e.target.value; a.__s = null; a.dirty = true; done(false); });
+  on('#oHt', 'change', e => { a.ldHeightFt = clamp(+e.target.value || 0, 0, 400); done(false); });
+  on('#oDTxt', 'change', e => { a.ldText = e.target.value.trim() || null; done(false); });
+  on('#oDFont', 'change', e => { a.ldFontFt = clamp(+e.target.value || 1.4, .25, 40); done(false); });
+  on('#oDCol', 'input', e => { a.ldStrokeColor = e.target.value; canvas.requestRenderAll(); });
+  on('#oDCol', 'change', () => done(false));
   on('#oX', 'change', e => { a.set('left', (+e.target.value || 0) * PPF); done(false); });
   on('#oY', 'change', e => { a.set('top', (+e.target.value || 0) * PPF); done(false); });
   on('#oPW', 'change', e => { a.set('strokeWidth', clamp(+e.target.value || 1, .25, 200) * PPF); a.ldWidthFt = +e.target.value; done(true); });
   on('#oDia', 'change', e => { a.set({ radius: clamp(+e.target.value || 8, .5, 400) * PPF / 2, scaleX: 1, scaleY: 1 }); done(true); });
+  on('#oThrow', 'change', e => { a.set({ radius: clamp(+e.target.value || 12, 1, 400) * PPF, scaleX: 1, scaleY: 1 }); done(true); });
+  on('#oArc', 'change', e => { a.ldArc = +e.target.value; a.dirty = true; done(false); });
+  on('#oSym', 'change', e => { a.ldSymbol = e.target.value; a.dirty = true; done(false); });
   on('#oFS', 'change', e => { a.set('fontSize', clamp(+e.target.value || 2, .25, 60) * PPF); done(true); });
-  on('#oSW', 'change', e => { a.set('strokeWidth', clamp(+e.target.value || 0, 0, 200)); done(false); });
+  on('#oSW', 'change', e => { a.set('strokeWidth', clamp(+e.target.value || 0, 0, 200)); applyLineStyle(a); done(false); });
   on('#oOp', 'input', e => { a.set('opacity', +e.target.value / 100); canvas.requestRenderAll(); });
   on('#oOp', 'change', () => done(false));
-  on('#oFill', 'input', e => { a.ldTex = null; a.set('fill', e.target.value); canvas.requestRenderAll(); });
+  on('#oFill', 'input', e => {
+    a.ldTex = null; a.ldFillColor = e.target.value;
+    if (a.ldKind === 'label') a.set('fill', e.target.value); else paint(a);
+    canvas.requestRenderAll();
+  });
   on('#oFill', 'change', () => done(true));
+  on('#oFillRaw', 'input', e => { a.ldFillColor = e.target.value; a.dirty = true; canvas.requestRenderAll(); });
+  on('#oFillRaw', 'change', () => done(false));
   on('#oStroke', 'input', e => {
     if (a.ldKind === 'path') a.ldStrokeTex = null;
-    a.set('stroke', e.target.value); canvas.requestRenderAll();
+    a.ldStrokeColor = e.target.value; paint(a); canvas.requestRenderAll();
   });
   on('#oStroke', 'change', () => done(true));
 }
-
 
 /* ── 10. object actions ──────────────────────────────────────────────── */
 async function duplicate() {
@@ -1410,8 +2235,8 @@ async function duplicate() {
   for (const o of many) {
     const c = await o.clone(CUSTOM);
     c.set({ left: c.left + g, top: c.top + g });
-    c.ldId = uid(); c.ldLabelFor = null; c.ldLock = false; c.ldEditing = false;
-    c.controls = defaultControls();
+    c.ldId = uid(); c.ldLabelFor = null; c.ldDimFor = null; c.ldLock = false; c.ldEditing = false;
+    c.controls = c.ldKind === 'dim' ? dimControls(c) : defaultControls();
     tag(c); applyTex(c);
     canvas.add(c); made.push(c);
   }
@@ -1423,7 +2248,8 @@ function deleteSelection() {
   const many = canvas.getActiveObjects();
   if (!many.length) return;
   const ids = many.map(o => o.ldId);
-  const all = many.concat(objects().filter(o => o.ldLabelFor && ids.includes(o.ldLabelFor)));
+  const all = many.concat(objects().filter(o =>
+    (o.ldLabelFor && ids.includes(o.ldLabelFor)) || (o.ldDimFor && ids.includes(o.ldDimFor))));
   canvas.discardActiveObject();
   all.forEach(o => canvas.remove(o));
   canvas.requestRenderAll(); pushHistory(); renderInspector();
@@ -1461,7 +2287,11 @@ canvas.on('selection:cleared', e => {
   (e.deselected || []).forEach(o => { if (o.ldEditing) setEditMode(o, false); });
   renderInspector();
 });
-canvas.on('object:modified', () => { pushHistory(); renderInspector(); });
+canvas.on('object:modified', e => {
+  const o = e.target;
+  if (o && o.ldId && o.points && dimsFor(o.ldId).length) addDimensions(o, true);
+  pushHistory(); renderInspector();
+});
 canvas.on('object:moving', e => {
   const o = e.target;
   if (State.snap && !(e.e && e.e.altKey)) {
@@ -1472,7 +2302,9 @@ canvas.on('object:moving', e => {
   const dy = o.top - (o._pt == null ? o.top : o._pt);
   if (o.ldId && (dx || dy)) {
     objects().forEach(L => {
-      if (L.ldLabelFor === o.ldId && !L.ldLock) { L.set({ left: L.left + dx, top: L.top + dy }); L.setCoords(); }
+      if ((L.ldLabelFor === o.ldId || L.ldDimFor === o.ldId) && !L.ldLock) {
+        L.set({ left: L.left + dx, top: L.top + dy }); L.setCoords();
+      }
     });
   }
   o._pl = o.left; o._pt = o.top;
@@ -1498,7 +2330,8 @@ function pushHistoryNow() {
   const s = snapshot();
   if (hist[hi] === s) return;
   hist = hist.slice(0, hi + 1); hist.push(s);
-  if (hist.length > 60) hist.shift();
+  const cap = objects().some(o => o.ldKind === 'trace') ? 12 : 60;
+  while (hist.length > cap) hist.shift();
   hi = hist.length - 1;
   updateUndoUI(); saveSoon();
 }
@@ -1522,8 +2355,12 @@ async function restore(s) {
 function rehydrate() {
   objects().forEach(o => {
     o.ldEditing = false;
-    o.controls = defaultControls();
-    tag(o); applyTex(o);
+    o.controls = o.ldKind === 'dim' ? dimControls(o) : defaultControls();
+    if (o.ldKind === 'dim') o.set({ cornerStyle: 'circle', cornerColor: MARK,
+      cornerStrokeColor: '#fff', cornerSize: 9, transparentCorners: false, hasBorders: false });
+    if (o.ldFillColor === undefined && typeof o.fill === 'string' && o.fill) o.ldFillColor = o.fill;
+    if (o.ldStrokeColor === undefined && typeof o.stroke === 'string' && o.stroke) o.ldStrokeColor = o.stroke;
+    tag(o); paint(o);
     o.setCoords();
   });
 }
@@ -1668,8 +2505,201 @@ function importFile(file) {
 }
 async function exportPNG() {
   if (!P) return;
+  const out = await composePlan(2600);
+  const c = out.getContext('2d');
+  c.fillStyle = 'rgba(14,21,28,.85)';
+  c.fillRect(0, out.height - 30, 260, 30);
+  c.fillStyle = '#fff'; c.font = '500 14px "IBM Plex Mono",monospace';
+  c.fillText(`${P.name} — ${P.widthFt} × ${P.heightFt} ft`, 10, out.height - 11);
+  out.toBlob(b => download(P.name.replace(/\s+/g, '-').toLowerCase() + '.png', null, URL.createObjectURL(b)));
+  toast('PNG saved.');
+}
+
+
+
+/* ── 14b. the library ────────────────────────────────────────────────── */
+/* Two sorts of entry. Things you place (trees, heads, fittings) get stamped
+   down where you click. Surfaces and lines instead set up the matching tool,
+   so you draw them yourself. */
+const LIB = [
+  { g: 'Trees and shrubs', items: [
+    { kind: 'tree', n: 'Shade tree',        d: 32,  sp: 'broadleaf', sw: '#4B6B36', note: "32'" },
+    { kind: 'tree', n: 'Large canopy tree', d: 45,  sp: 'broadleaf', sw: '#3F5C2D', note: "45'" },
+    { kind: 'tree', n: 'Ficus',             d: 26,  sp: 'broadleaf', sw: '#44662F', note: "26'" },
+    { kind: 'tree', n: 'Fruit tree',        d: 18,  sp: 'fruit',     sw: '#6A8B44', note: "18'" },
+    { kind: 'tree', n: 'Citrus',            d: 12,  sp: 'fruit',     sw: '#5F8A3E', note: "12'" },
+    { kind: 'tree', n: 'Conifer',           d: 20,  sp: 'conifer',   sw: '#33552F', note: "20'" },
+    { kind: 'tree', n: 'Palm',              d: 14,  sp: 'palm',      sw: '#5C8358', note: "14'" },
+    { kind: 'tree', n: 'Columnar / cypress', d: 7,  sp: 'columnar',  sw: '#3D5F35', note: "7'" },
+    { kind: 'tree', n: 'Weeping tree',      d: 22,  sp: 'weeping',   sw: '#5A7B44', note: "22'" },
+    { kind: 'tree', n: 'Large shrub',       d: 7,   sp: 'shrub',     sw: '#5E7F45', note: "7'" },
+    { kind: 'tree', n: 'Small shrub',       d: 3.5, sp: 'shrub',     sw: '#6E8F52', note: "3.5'" },
+    { kind: 'tree', n: 'Rose bush',         d: 3,   sp: 'rose',      sw: '#6E8F52', bloom: '#D9538A', note: "3'" },
+    { kind: 'tree', n: 'Flowering shrub',   d: 5,   sp: 'rose',      sw: '#6E8F52', bloom: '#E0A33C', note: "5'" }
+  ]},
+  { g: 'Beds and surfaces', items: [
+    { kind: 'area', n: 'Lawn',          tex: 'grass',     stroke: '#41503A', sw: '#7B9B5C' },
+    { kind: 'area', n: 'Flower bed',    tex: 'soil',      stroke: '#4A3626', sw: '#5C4632', smooth: true },
+    { kind: 'area', n: 'Vegetable bed', tex: 'soil',      stroke: '#4A3626', sw: '#5C4632' },
+    { kind: 'area', n: 'Mulched bed',   tex: 'mulch',     stroke: '#4A3021', sw: '#6B4A32', smooth: true },
+    { kind: 'area', n: 'Hedge',         tex: 'hedge',     stroke: '#2F4224', sw: '#4F6B3C', ht: 4 },
+    { kind: 'area', n: 'Meadow',        tex: 'meadow',    stroke: '#4A5A34', sw: '#93A961' },
+    { kind: 'area', n: 'Patio',         tex: 'flagstone', stroke: '#6E6A62', sw: '#9E9A90' },
+    { kind: 'area', n: 'Deck',          tex: 'decking',   stroke: '#6B5136', sw: '#9A7550' },
+    { kind: 'area', n: 'Driveway',      tex: 'concrete',  stroke: '#8C887F', sw: '#C4C2BC' },
+    { kind: 'area', n: 'Gravel area',   tex: 'gravel',    stroke: '#8A7F6A', sw: '#B9AE97' },
+    { kind: 'area', n: 'Pond',          tex: 'water',     stroke: '#33607A', sw: '#5A8AA6', smooth: true },
+    { kind: 'area', n: 'Sand pit',      tex: 'sand',      stroke: '#B0A075', sw: '#D9CBA6', smooth: true },
+    { kind: 'area', n: 'Building',      tex: null, fill: '#B9B4AA', stroke: '#4A463F', sw: '#B9B4AA', ht: 12 },
+    { kind: 'area', n: 'Boundary wall',  tex: 'brick',     stroke: '#6B4436', sw: '#A85C43', ht: 6 },
+    { kind: 'area', n: 'Raised planter', tex: 'soil',      stroke: '#4A3626', sw: '#5C4632', ht: 1.5 }
+  ]},
+  { g: 'Paths', items: [
+    { kind: 'path', n: 'Flagstone path', tex: 'flagstone', stroke: '#9E9A90', w: 4, sw: '#9E9A90', note: "4'" },
+    { kind: 'path', n: 'Brick path',     tex: 'brick',     stroke: '#A85C43', w: 3, sw: '#A85C43', note: "3'" },
+    { kind: 'path', n: 'Gravel path',    tex: 'gravel',    stroke: '#B9AE97', w: 3, sw: '#B9AE97', note: "3'" },
+    { kind: 'path', n: 'Paver walk',     tex: 'paver',     stroke: '#B6B2A8', w: 3.5, sw: '#B6B2A8', note: "3.5'" },
+    { kind: 'path', n: 'Mown track',     tex: 'grass',     stroke: '#7B9B5C', w: 5, sw: '#7B9B5C', note: "5'" }
+  ]},
+  { g: 'Irrigation', items: [
+    { kind: 'line', n: 'Main line',    stroke: '#1E5C8A', sw: 4, sw2: 1, note: '1"' },
+    { kind: 'line', n: 'Lateral line', stroke: '#3E8FC4', sw: 2.5, note: '3/4"' },
+    { kind: 'line', n: 'Drip line',    stroke: '#6BAF6B', sw: 2, ls: 'dotted', smooth: true, note: 'drip' },
+    { kind: 'line', n: 'Sleeve / conduit', stroke: '#8A8A8A', sw: 3, ls: 'dashed', note: 'under path' },
+    { kind: 'head', n: 'Spray head 90°',  throwFt: 8,  arc: 90,  sw: '#4A8CBE', note: "8'" },
+    { kind: 'head', n: 'Spray head 180°', throwFt: 12, arc: 180, sw: '#4A8CBE', note: "12'" },
+    { kind: 'head', n: 'Spray head 360°', throwFt: 12, arc: 360, sw: '#4A8CBE', note: "12'" },
+    { kind: 'head', n: 'Rotor 270°',      throwFt: 25, arc: 270, sw: '#3E7FA8', note: "25'" },
+    { kind: 'head', n: 'Rotor 360°',      throwFt: 30, arc: 360, sw: '#3E7FA8', note: "30'" },
+    { kind: 'marker', n: 'Valve',     symbol: 'valve', sw: '#2F6FB0' },
+    { kind: 'marker', n: 'Hose bib',  symbol: 'bib',   sw: '#2F6FB0' },
+    { kind: 'marker', n: 'Tee',       symbol: 'tee',   sw: '#2F6FB0' },
+    { kind: 'marker', n: 'Water meter', symbol: 'meter', sw: '#1E5C8A' }
+  ]}
+];
+
+function pickPreset(g, i) {
+  const grp = LIB.find(x => x.g === g);
+  const it = grp && grp.items[i];
+  if (!it) return;
+
+  if (it.kind === 'tree' || it.kind === 'head' || it.kind === 'marker') {
+    State.stamp = it;
+    canvas.discardActiveObject();
+    canvas.skipTargetFind = true;
+    canvas.defaultCursor = 'crosshair';
+    const h = $('#hint');
+    h.style.display = 'block';
+    h.innerHTML = `Click to place <b>${esc(it.n)}</b>. It stays armed for the next one.`;
+    renderInspector();
+    return;
+  }
+  if (it.kind === 'area') {
+    const base = { tex: it.tex || null, fill: it.fill || null, stroke: it.stroke,
+                   sw: 1.5, smooth: !!it.smooth, op: 1, ls: 'solid', ht: it.ht || 0, name: it.n };
+    Object.assign(D.poly, base);
+    Object.assign(D.rect, base);
+    Object.assign(D.tri, base);
+    Object.assign(D.ellipse, base, { smooth: true });
+    setTool('poly');
+  } else if (it.kind === 'path') {
+    Object.assign(D.path, { stex: it.tex || null, stroke: it.stroke, widthFt: it.w,
+                            smooth: true, op: 1, name: it.n });
+    setTool('path');
+  } else if (it.kind === 'line') {
+    Object.assign(D.line, { stroke: it.stroke, sw: it.sw, ls: it.ls || 'solid',
+                            smooth: !!it.smooth, arrow: false, op: 1, name: it.n });
+    setTool('line');
+  }
+  toast(`${it.n} — draw it on the plan.`);
+}
+
+function placeStamp(it, x, y) {
+  let o = null;
+  if (it.kind === 'tree') o = newTree(x, y, it.d, {
+    ldFillColor: it.sw, ldSpecies: it.sp || 'broadleaf', ldBloomColor: it.bloom || null, ldName: it.n });
+  else if (it.kind === 'head') o = newSprinkler(x, y, it.throwFt, it.arc, { ldName: it.n });
+  else if (it.kind === 'marker') o = newMarker(x, y, it.symbol, { ldName: it.n, ldFillColor: it.sw });
+  if (!o) return;
+  canvas.add(o);
+  canvas.requestRenderAll();
+  pushHistory();
+}
+
+/* ── 14c. tracing over a photo or survey ─────────────────────────────── */
+const FImage = F.FabricImage || F.Image;
+function openTracePicker() { $('#traceIn').click(); }
+
+function importTrace(file) {
+  const fr = new FileReader();
+  fr.onload = () => {
+    const img = new Image();
+    img.onload = async () => {
+      const max = 1600, k = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const url = cv.toDataURL('image/jpeg', .75);
+      let fi;
+      try { fi = await FImage.fromURL(url); }
+      catch (e) { toast("That image couldn't be read."); return; }
+      const s = (P.widthFt * PPF * .9) / fi.width;
+      fi.set({ left: P.widthFt * PPF * .05, top: P.heightFt * PPF * .05,
+               scaleX: s, scaleY: s, opacity: .65, objectCaching: false });
+      fi.ldName = 'Traced image';
+      tag(fi, 'trace');
+      canvas.add(fi);
+      canvas.sendObjectToBack(fi);
+      canvas.setActiveObject(fi);
+      setTool('select');
+      pushHistory();
+      toast('Set its scale next, then lock it and draw over the top.');
+    };
+    img.onerror = () => toast("That file isn't an image I can read.");
+    img.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+function startCalibration(o) {
+  State.calibrate = o;
+  setTool('measure');
+  const h = $('#hint');
+  h.style.display = 'block';
+  h.innerHTML = 'Drag along something on the image whose real length you know.';
+}
+function finishCalibration() {
+  const o = State.calibrate;
+  State.calibrate = null;
+  if (!measure || !o) { cancelDraft(); return; }
+  const px = Math.hypot(measure.line.x2 - measure.x0, measure.line.y2 - measure.y0);
+  cancelDraft();
+  if (px < 4) { toast('Too short to measure — drag a longer line.'); setTool('select'); return; }
+  const ans = prompt('How long is that in feet?', '20');
+  if (ans === null) { setTool('select'); canvas.setActiveObject(o); return; }
+  const feet = parseFloat(ans);
+  if (!(feet > 0)) { toast('Enter a length in feet.'); setTool('select'); return; }
+  const c = o.getCenterPoint(), k = (feet * PPF) / px;
+  o.set({ scaleX: o.scaleX * k, scaleY: o.scaleY * k });
+  o.setPositionByOrigin(c, 'center', 'center');
+  o.setCoords();
+  setTool('select');
+  canvas.setActiveObject(o);
+  canvas.requestRenderAll();
+  pushHistory();
+  toast(`Scaled — the image now reads ${num(o.width * o.scaleX / PPF, 0)} ft across.`);
+}
+
+
+/* ── 18. the plan as a picture ───────────────────────────────────────── */
+/* Used by both the PNG export and the 3D ground. `hide` lets the caller drop
+   objects it intends to build properly in 3D instead of painting flat. */
+async function composePlan(maxPx, hide) {
   const W = P.widthFt * PPF, H = P.heightFt * PPF;
-  const s = clamp(2600 / Math.max(W, H), .35, 8);
+  const s = clamp((maxPx || 2600) / Math.max(W, H), .2, 8);
+  const hidden = [];
+  if (hide) objects().forEach(o => { if (hide(o) && o.visible !== false) { o.visible = false; hidden.push(o); } });
+
   const vtOld = canvas.viewportTransform.slice(), dw = canvas.getWidth(), dh = canvas.getHeight();
   canvas.discardActiveObject();
   canvas.setDimensions({ width: Math.round(W * s), height: Math.round(H * s) });
@@ -1678,6 +2708,7 @@ async function exportPNG() {
   const url = canvas.toDataURL({ format: 'png', multiplier: 1 });
   canvas.setDimensions({ width: dw, height: dh });
   canvas.setViewportTransform(vtOld);
+  hidden.forEach(o => { o.visible = true; });
   redraw();
 
   const out = document.createElement('canvas');
@@ -1695,19 +2726,264 @@ async function exportPNG() {
       c.beginPath(); c.moveTo(0, Math.round(y) + .5); c.lineTo(out.width, Math.round(y) + .5); c.stroke();
     }
   }
-  const img = new Image();
-  img.onload = () => {
-    c.drawImage(img, 0, 0);
-    c.fillStyle = 'rgba(14,21,28,.85)';
-    c.fillRect(0, out.height - 30, 250, 30);
-    c.fillStyle = '#fff'; c.font = '500 14px "IBM Plex Mono",monospace';
-    c.fillText(`${P.name} — ${P.widthFt} × ${P.heightFt} ft`, 10, out.height - 11);
-    out.toBlob(b => download(P.name.replace(/\s+/g, '-').toLowerCase() + '.png', null, URL.createObjectURL(b)));
-    toast('PNG saved.');
-  };
-  img.src = url;
+  await new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => { c.drawImage(img, 0, 0); res(); };
+    img.onerror = rej;
+    img.src = url;
+  });
+  return out;
 }
 
+/* ── 19. 3D view ─────────────────────────────────────────────────────── */
+let TD = null;
+const V3D = { open: false };
+
+function loadThree() {
+  return new Promise((res, rej) => {
+    if (window.THREE) return res();
+    const t = document.createElement('script');
+    t.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js';
+    t.onload = () => res();
+    t.onerror = () => rej(new Error('three'));
+    document.head.appendChild(t);
+  });
+}
+
+async function open3D() {
+  if (!P) return;
+  $('#v3d').classList.add('show');
+  V3D.open = true;
+  note3D('Loading the 3D view…');
+  try { await loadThree(); }
+  catch (e) { note3D('Could not fetch the 3D library. It needs a connection the first time.'); return; }
+  note3D('Building the site…');
+  try { await build3D(); note3D(''); }
+  catch (e) { console.error(e); note3D('Something went wrong building the view.'); }
+}
+function close3D() {
+  V3D.open = false;
+  $('#v3d').classList.remove('show');
+  if (TD && TD.anim) { cancelAnimationFrame(TD.anim); TD.anim = null; }
+}
+function note3D(t) { const e = $('#v3dNote'); e.textContent = t; e.style.display = t ? 'block' : 'none'; }
+
+/* Feet, centred on the plot, with y up. */
+function toScene(px, py) { return { x: px / PPF - P.widthFt / 2, z: py / PPF - P.heightFt / 2 }; }
+
+function texMaterial(o, colour) {
+  if (o.ldTex && TEX[o.ldTex]) {
+    const t = new THREE.CanvasTexture(texCanvas(o.ldTex));
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    const per = TEX[o.ldTex].tile / PPF;          // tile size in feet
+    t.repeat.set(1 / per, 1 / per);
+    return new THREE.MeshLambertMaterial({ map: t });
+  }
+  return new THREE.MeshLambertMaterial({ color: new THREE.Color(colour || '#B9B4AA') });
+}
+
+function buildExtrusion(o) {
+  const wp = worldPoints(o);
+  if (wp.length < 3) return null;
+  const shape = new THREE.Shape();
+  wp.forEach((p, i) => {
+    const q = toScene(p.x, p.y);
+    if (i === 0) shape.moveTo(q.x, -q.z); else shape.lineTo(q.x, -q.z);
+  });
+  shape.closePath();
+  const g = new THREE.ExtrudeGeometry(shape, { depth: o.ldHeightFt, bevelEnabled: false });
+  const m = new THREE.Mesh(g, texMaterial(o, o.ldFillColor));
+  m.rotation.x = -Math.PI / 2;
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+
+function buildTree(o) {
+  const sp = SPECIES[o.ldSpecies || 'broadleaf'] || SPECIES.broadleaf;
+  const dia = o.radius * 2 * Math.abs(o.scaleX) / PPF;
+  const c = o.getCenterPoint(), pos = toScene(c.x, c.y);
+  const total = dia * sp.h;
+  const g = new THREE.Group();
+  const leafCol = new THREE.Color(o.ldFillColor || '#5E7F45');
+  const leaf = new THREE.MeshLambertMaterial({ color: leafCol });
+  const bark = new THREE.MeshLambertMaterial({ color: 0x6B4E32 });
+
+  const clear = sp.form === 'dome' ? total * .10 : total * .34;   // trunk height
+  const trunkR = Math.max(.12, dia * .035);
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(trunkR * .8, trunkR, clear, 7), bark);
+  trunk.position.y = clear / 2;
+  trunk.castShadow = true;
+  g.add(trunk);
+
+  let canopy;
+  const ch = total - clear;
+  if (sp.form === 'cone') {
+    canopy = new THREE.Mesh(new THREE.ConeGeometry(dia / 2, ch, 12), leaf);
+    canopy.position.y = clear + ch / 2;
+  } else if (sp.form === 'column') {
+    canopy = new THREE.Mesh(new THREE.SphereGeometry(dia / 2, 12, 10), leaf);
+    canopy.scale.set(1, ch / dia, 1);
+    canopy.position.y = clear + ch / 2;
+  } else if (sp.form === 'dome') {
+    canopy = new THREE.Mesh(new THREE.SphereGeometry(dia / 2, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), leaf);
+    canopy.scale.set(1, ch / (dia / 2), 1);
+    canopy.position.y = clear;
+  } else if (sp.form === 'palm') {
+    const fronds = new THREE.Group();
+    for (let i = 0; i < 9; i++) {
+      const f = new THREE.Mesh(new THREE.ConeGeometry(dia * .09, dia * .55, 4), leaf);
+      const a = i / 9 * Math.PI * 2;
+      f.position.set(Math.cos(a) * dia * .26, clear + dia * .04, Math.sin(a) * dia * .26);
+      f.rotation.set(Math.PI / 2 - .55, 0, -a + Math.PI / 2);
+      f.castShadow = true;
+      fronds.add(f);
+    }
+    g.add(fronds);
+    canopy = null;
+  } else {
+    canopy = new THREE.Mesh(new THREE.SphereGeometry(dia / 2, 14, 11), leaf);
+    canopy.scale.set(1, Math.max(.5, ch / dia), 1);
+    canopy.position.y = clear + ch / 2;
+  }
+  if (canopy) { canopy.castShadow = true; g.add(canopy); }
+  g.position.set(pos.x, 0, pos.z);
+  return g;
+}
+
+async function build3D() {
+  const host = $('#v3dCanvas');
+  if (!TD) {
+    const renderer = new THREE.WebGLRenderer({ canvas: host, antialias: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(48, 1, .3, 40000);
+    TD = { renderer, scene, camera, shadows: true, sun: 135,
+           orbit: { th: -50, ph: 40, dist: 150, tx: 0, tz: 0 }, anim: null };
+    bind3D(host);
+  }
+  const { scene } = TD;
+  while (scene.children.length) scene.remove(scene.children[0]);
+
+  const Wf = P.widthFt, Hf = P.heightFt;
+  scene.background = new THREE.Color(0x9EC4DE);
+  scene.fog = new THREE.Fog(0x9EC4DE, Math.max(Wf, Hf) * 1.6, Math.max(Wf, Hf) * 5);
+
+  const tall = o => o.ldKind === 'area' && (o.ldHeightFt || 0) > 0;
+  const plan = await composePlan(2400, o =>
+    o.ldKind === 'tree' || o.ldKind === 'dim' || tall(o));
+  const groundTex = new THREE.CanvasTexture(plan);
+  groundTex.anisotropy = TD.renderer.capabilities.getMaxAnisotropy();
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(Wf, Hf),
+    new THREE.MeshLambertMaterial({ map: groundTex }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const skirt = new THREE.Mesh(
+    new THREE.PlaneGeometry(Math.max(Wf, Hf) * 6, Math.max(Wf, Hf) * 6),
+    new THREE.MeshLambertMaterial({ color: 0x8CA773 }));
+  skirt.rotation.x = -Math.PI / 2;
+  skirt.position.y = -.06;
+  scene.add(skirt);
+
+  let built = 0;
+  objects().forEach(o => {
+    try {
+      if (tall(o)) { const m = buildExtrusion(o); if (m) { scene.add(m); built++; } }
+      else if (o.ldKind === 'tree') { scene.add(buildTree(o)); built++; }
+    } catch (e) { console.warn('skipped an object in 3D', e); }
+  });
+
+  scene.add(new THREE.HemisphereLight(0xBFD8EA, 0x6E7C55, .78));
+  const sun = new THREE.DirectionalLight(0xFFF3DC, .85);
+  const span = Math.max(Wf, Hf);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  const cam = sun.shadow.camera;
+  cam.left = -span * .8; cam.right = span * .8;
+  cam.top = span * .8; cam.bottom = -span * .8;
+  cam.near = 1; cam.far = span * 4;
+  cam.updateProjectionMatrix();
+  scene.add(sun);
+  scene.add(sun.target);
+  TD.sunLight = sun;
+  placeSun();
+
+  TD.orbit.dist = TD.orbit.dist || Math.hypot(Wf, Hf) * 1.1;
+  if (!TD.posed) { setView('bird'); TD.posed = true; }
+  resize3D();
+  if (!TD.anim) loop3D();
+  $('#v3dCount').textContent = built ? `${built} object${built > 1 ? 's' : ''} standing up` : 'flat — give shapes a height';
+}
+
+function placeSun() {
+  if (!TD || !TD.sunLight) return;
+  const span = Math.max(P.widthFt, P.heightFt), a = TD.sun * Math.PI / 180;
+  TD.sunLight.position.set(Math.cos(a) * span * .9, span * 1.1, Math.sin(a) * span * .9);
+  TD.sunLight.target.position.set(0, 0, 0);
+  TD.sunLight.castShadow = TD.shadows;
+}
+function setView(v) {
+  if (!TD) return;
+  const d = Math.hypot(P.widthFt, P.heightFt);
+  const o = TD.orbit;
+  o.tx = 0; o.tz = 0;
+  if (v === 'bird') { o.th = -50; o.ph = 38; o.dist = d * 1.05; }
+  else if (v === 'top') { o.th = -90; o.ph = 88; o.dist = d * .95; }
+  else if (v === 'n') { o.th = 90; o.ph = 7; o.dist = d * .95; }
+  else if (v === 's') { o.th = -90; o.ph = 7; o.dist = d * .95; }
+  else if (v === 'e') { o.th = 180; o.ph = 7; o.dist = d * .95; }
+  else if (v === 'w') { o.th = 0; o.ph = 7; o.dist = d * .95; }
+  $$('#v3dBar [data-view]').forEach(b => b.classList.toggle('key', b.dataset.view === v));
+}
+function loop3D() {
+  if (!TD) return;
+  TD.anim = requestAnimationFrame(loop3D);
+  if (!V3D.open) return;
+  const o = TD.orbit, ph = clamp(o.ph, 1.5, 89) * Math.PI / 180, th = o.th * Math.PI / 180;
+  const r = Math.cos(ph) * o.dist;
+  TD.camera.position.set(o.tx + Math.cos(th) * r, Math.sin(ph) * o.dist, o.tz + Math.sin(th) * r);
+  TD.camera.lookAt(o.tx, Math.max(0, o.dist * .04), o.tz);
+  TD.renderer.render(TD.scene, TD.camera);
+}
+function resize3D() {
+  if (!TD) return;
+  const el = $('#v3d'), w = el.clientWidth, h = el.clientHeight;
+  TD.renderer.setSize(w, h, false);
+  TD.camera.aspect = w / Math.max(1, h);
+  TD.camera.updateProjectionMatrix();
+}
+function bind3D(host) {
+  let drag = null;
+  host.addEventListener('pointerdown', e => {
+    drag = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2 };
+    host.setPointerCapture(e.pointerId);
+  });
+  host.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag.x = e.clientX; drag.y = e.clientY;
+    const o = TD.orbit;
+    if (drag.pan) {
+      const th = o.th * Math.PI / 180, k = o.dist * .0016;
+      o.tx += (-dx * Math.sin(th) - dy * Math.cos(th)) * k;
+      o.tz += (dx * Math.cos(th) - dy * Math.sin(th)) * k;
+    } else {
+      o.th += dx * .35;
+      o.ph = clamp(o.ph - dy * .3, 1.5, 89);
+    }
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev =>
+    host.addEventListener(ev, () => { drag = null; }));
+  host.addEventListener('contextmenu', e => e.preventDefault());
+  host.addEventListener('wheel', e => {
+    e.preventDefault();
+    TD.orbit.dist = clamp(TD.orbit.dist * Math.pow(1.0013, e.deltaY), 3, Math.hypot(P.widthFt, P.heightFt) * 6);
+  }, { passive: false });
+}
 
 /* ── 15. chrome wiring ───────────────────────────────────────────────── */
 function openModal(sel, forced) {
@@ -1756,6 +3032,18 @@ $('#pNew').addEventListener('click', () => { closeModal('#mProjects'); openSizeM
 $('#pDuplicate').addEventListener('click', duplicateProject);
 $('#btnSize').addEventListener('click', () => openSizeModal('edit'));
 $('#btnHelp').addEventListener('click', () => openModal('#mHelp'));
+$('#btn3D').addEventListener('click', open3D);
+$('#v3dClose').addEventListener('click', close3D);
+$('#v3dRebuild').addEventListener('click', () => { note3D('Rebuilding…'); build3D().then(() => note3D('')); });
+$$('#v3dBar [data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+$('#v3dSun').addEventListener('input', e => { if (TD) { TD.sun = +e.target.value; placeSun(); } });
+$('#v3dShadow').addEventListener('click', () => {
+  if (!TD) return;
+  TD.shadows = !TD.shadows;
+  $('#v3dShadow').textContent = TD.shadows ? 'Shadows on' : 'Shadows off';
+  $('#v3dShadow').classList.toggle('key', TD.shadows);
+  placeSun();
+});
 $('#btnInsp').addEventListener('click', () => $('#insp').classList.toggle('open'));
 $('#btnUndo').addEventListener('click', undo);
 $('#btnRedo').addEventListener('click', redo);
@@ -1786,7 +3074,11 @@ $('#projName').addEventListener('change', e => {
   P.name = e.target.value.trim() || 'Untitled plot';
   e.target.value = P.name; saveNow();
 });
-$$('.tool').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+$$('.tool').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.tool === 'trace') { openTracePicker(); return; }
+  setTool(b.dataset.tool);
+}));
+$('#traceIn').addEventListener('change', e => { if (e.target.files[0]) importTrace(e.target.files[0]); e.target.value = ''; });
 
 /* ── 16. keyboard ────────────────────────────────────────────────────── */
 function typing() {
@@ -1795,7 +3087,9 @@ function typing() {
   const a = canvas.getActiveObject();
   return !!(a && a.isEditing);
 }
-const TOOLKEY = { v: 'select', h: 'pan', r: 'rect', o: 'ellipse', y: 'tri', p: 'poly', w: 'path', t: 'tree', x: 'label', m: 'measure' };
+const TOOLKEY = { v: 'select', h: 'pan', r: 'rect', o: 'ellipse', y: 'tri', p: 'poly',
+                  w: 'path', n: 'line', a: 'arrow', t: 'tree', x: 'label', m: 'measure',
+                  b: 'library', i: 'trace' };
 
 window.addEventListener('keydown', e => {
   if (e.code === 'Space' && !typing()) {
@@ -1804,13 +3098,14 @@ window.addEventListener('keydown', e => {
   }
   const modal = $$('.veil').some(v => v.classList.contains('show'));
   if (e.key === 'Escape') {
+    if (V3D.open) { close3D(); return; }
     if (modal) { $$('.veil').forEach(v => closeModal('#' + v.id)); return; }
     if (draft || measure) { cancelDraft(); return; }
     const a = canvas.getActiveObject();
     if (a && a.ldEditing) { setEditMode(a, false); return; }
     canvas.discardActiveObject(); canvas.requestRenderAll(); return;
   }
-  if (modal || typing()) return;
+  if (modal || typing() || V3D.open) return;
 
   const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
 
@@ -1852,6 +3147,7 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (k === 'l') { toggleLock(); return; }
+  if (k === 'i') { openTracePicker(); return; }
   if (TOOLKEY[k]) { setTool(TOOLKEY[k]); return; }
 });
 window.addEventListener('keyup', e => {
@@ -1860,7 +3156,7 @@ window.addEventListener('keyup', e => {
 window.addEventListener('beforeunload', () => { if (P) saveNow(); });
 
 /* ── 17. boot ────────────────────────────────────────────────────────── */
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); if (V3D.open) resize3D(); });
 try { new ResizeObserver(() => resize()).observe($('#field')); } catch (e) {}
 
 (function boot() {
