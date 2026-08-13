@@ -261,6 +261,8 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
     <svg viewBox="0 0 24 24"><path d="M4 9l6-5 10 4-2 11-11 1z"/><circle cx="4" cy="9" r="1.6" fill="currentColor"/><circle cx="20" cy="8" r="1.6" fill="currentColor"/></svg><span class="kbd">P</span></button>
   <button class="tool" data-tool="path" title="Pathway — click each turn, Enter to finish — W">
     <svg viewBox="0 0 24 24"><path d="M6 20c0-5 3-5 3-9S5 7 6 4"/><path d="M14 20c0-5 4-5 4-9s-4-4-3-7"/></svg><span class="kbd">W</span></button>
+  <button class="tool" data-tool="gate" title="Cut a gate into a wall or fence — K">
+    <svg viewBox="0 0 24 24"><path d="M3 20V6M21 20V6"/><path d="M3 20h5M16 20h5"/><path d="M8 20V9l8-3v14"/></svg><span class="kbd">K</span></button>
   <button class="tool" data-tool="building" title="Building footprint — C">
     <svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11"/><path d="M9.5 20v-6h5v6"/><path d="M2.5 20h19"/></svg><span class="kbd">C</span></button>
   <button class="tool" data-tool="line" title="Straight line — N">
@@ -344,6 +346,7 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
     <div class="k"><kbd>N</kbd> <kbd>A</kbd></div><div>Line, arrow</div>
     <div class="k"><kbd>C</kbd></div><div>Building footprint</div>
     <div class="k"><kbd>U</kbd> <kbd>S</kbd></div><div>Tall tree, shrub</div>
+    <div class="k"><kbd>K</kbd></div><div>Cut a gate into a wall or fence</div>
     <div class="k"><kbd>T</kbd> <kbd>X</kbd> <kbd>M</kbd></div><div>Tree, label, measure</div>
     <div class="k"><kbd>B</kbd></div><div>Library — plants, surfaces, irrigation</div>
     <div class="k"><kbd>I</kbd></div><div>Bring in an image to trace over</div>
@@ -392,6 +395,8 @@ kbd{font-family:var(--mono);font-size:10px;background:var(--ink);border:1px soli
     <span class="clockval dim" id="v3dSunInfo"></span>
     <button class="tb key" id="v3dShadow">Shadows on</button>
     <button class="tb" id="v3dRebuild">Rebuild</button>
+    <button class="tb" id="v3dShot">Save image</button>
+    <button class="tb" id="v3dSheet">Save 6 views</button>
     <span class="spacer"></span>
     <span id="v3dCount"></span>
     <button class="tb key" id="v3dClose">Back to the plan</button>
@@ -673,19 +678,68 @@ function renderPoly(obj, ctx, closed) {
     ctx.lineTo(p[n - 1].x - ox, p[n - 1].y - oy);
   }
   obj._renderPaintInOrder(ctx);
-  if (closed) strokeEdge(obj, ctx);
   strokeDouble(obj, ctx);
+  if (closed) strokeEdge(obj, ctx);   /* last: it rebuilds the path to leave gaps */
 }
+/* Which stretches of a segment survive once the gates are punched out.
+   Everything here is in one flat 2D space; the caller picks which. */
+function piecesFor(a, b, gates) {
+  const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+  if (L2 < 1e-9) return [];
+  const L = Math.sqrt(L2), cuts = [];
+  gates.forEach(g => {
+    const u = ((g.x - a.x) * dx + (g.y - a.y) * dy) / L2;
+    const px = a.x + dx * u, py = a.y + dy * u;
+    if (Math.hypot(px - g.x, py - g.y) > g.r) return;      // gate is on another side
+    const hw = g.r / L, t0 = u - hw, t1 = u + hw;
+    if (t1 <= 0 || t0 >= 1) return;
+    cuts.push([Math.max(0, t0), Math.min(1, t1)]);
+  });
+  if (!cuts.length) return [[0, 1]];
+  cuts.sort((p, q) => p[0] - q[0]);
+  const out = [];
+  let cur = 0;
+  cuts.forEach(([t0, t1]) => { if (t0 > cur + 1e-4) out.push([cur, t0]); cur = Math.max(cur, t1); });
+  if (cur < 1 - 1e-4) out.push([cur, 1]);
+  return out;
+}
+function gatesOn(o) {
+  return objects().filter(g => g.ldKind === 'gate' && g.ldGateFor === o.ldId);
+}
+/* Gate centres and half-widths mapped into the shape's own drawing space. */
+function gatesLocal(o) {
+  const inv = F.util.invertTransform(o.calcTransformMatrix());
+  const sc = Math.abs(o.scaleX) || 1;
+  return gatesOn(o).map(g => {
+    const c = g.getCenterPoint();
+    const q = F.util.transformPoint(new F.Point(c.x, c.y), inv);
+    return { x: q.x, y: q.y, r: (g.radius * Math.abs(g.scaleX)) / sc };
+  });
+}
+
 function strokeEdge(o, ctx) {
   const e = o.ldEdge;
   if (!e || e === 'none') return;
   const w = Math.max(1.2, (o.ldEdgeWFt || .33) * PPF);
+  const p = o.points, nn = p.length, ox = o.pathOffset.x, oy = o.pathOffset.y;
+  const gates = gatesLocal(o);
   ctx.save();
   ctx.scale(1 / Math.abs(o.scaleX || 1), 1 / Math.abs(o.scaleY || 1));
   ctx.lineWidth = w;
+  ctx.lineCap = 'butt';
   ctx.lineJoin = 'round';
   ctx.strokeStyle = o.ldEdgeColor || (EDGES[e] || {}).col || '#A8A296';
   ctx.setLineDash(e === 'fence' ? [w * 1.4, w * 1.1] : []);
+  if (!gates.length) { ctx.stroke(); ctx.restore(); return; }
+  ctx.beginPath();
+  for (let i = 0; i < nn; i++) {
+    const a = { x: p[i].x - ox, y: p[i].y - oy };
+    const b = { x: p[(i + 1) % nn].x - ox, y: p[(i + 1) % nn].y - oy };
+    piecesFor(a, b, gates).forEach(([t0, t1]) => {
+      ctx.moveTo(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0);
+      ctx.lineTo(a.x + (b.x - a.x) * t1, a.y + (b.y - a.y) * t1);
+    });
+  }
   ctx.stroke();
   ctx.restore();
 }
@@ -877,6 +931,26 @@ class Sprinkler extends F.Circle {
     ctx.lineWidth = d * .45; ctx.strokeStyle = '#fff'; ctx.stroke();
   }
 }
+/* A gate is a gap. It carries the shape it belongs to, sits on that shape's
+   outline, and both the plan band and the 3D wall skip straight over it. */
+class Gate extends F.Circle {
+  static type = 'Gate';
+  _render(ctx) {
+    const w = this.radius * 2, col = this.ldStrokeColor || '#C2691E';
+    const post = Math.max(1.6, w * .07);
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(-w / 2, 0, post, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(w / 2, 0, post, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(1.4, w * .055);
+    ctx.beginPath(); ctx.moveTo(-w / 2, 0); ctx.lineTo(-w / 2, -w * .88); ctx.stroke();
+    ctx.setLineDash([w * .07, w * .055]);
+    ctx.lineWidth = Math.max(.8, w * .028);
+    ctx.beginPath(); ctx.arc(-w / 2, 0, w * .88, -Math.PI / 2, 0); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
 /* Valves, bibs, tees, meters — a coloured disc with a glyph. */
 class Marker extends F.Circle {
   static type = 'Marker';
@@ -895,7 +969,7 @@ class Marker extends F.Circle {
     ctx.stroke();
   }
 }
-[LandPoly, LandPath, Tree, Sprinkler, Marker].forEach(K => {
+[LandPoly, LandPath, Tree, Sprinkler, Marker, Gate].forEach(K => {
   try { F.classRegistry.setClass(K); } catch (e) {}
   try { F.classRegistry.setClass(K, K.type); } catch (e) {}
   try { F.classRegistry.setClass(K, K.type.toLowerCase()); } catch (e) {}
@@ -908,7 +982,8 @@ const CUSTOM = ['ldId', 'ldKind', 'ldTex', 'ldStrokeTex', 'ldFillColor', 'ldStro
                 'ldArrow', 'ldArc', 'ldSymbol', 'ldPreset', 'ldLineStyle', 'ldSpecies',
                 'ldHeightFt', 'ldWit', 'ldTxt', 'ldText', 'ldDimFor', 'ldDimIdx',
                 'ldFontFt', 'ldBloomColor', 'ldInnerColor',
-                'ldTreeHtFt', 'ldEdge', 'ldEdgeHtFt', 'ldEdgeWFt', 'ldEdgeColor', 'ldRoofColor'];
+                'ldTreeHtFt', 'ldEdge', 'ldEdgeHtFt', 'ldEdgeWFt', 'ldEdgeColor', 'ldRoofColor',
+                'ldGateFor', 'ldDimSkip'];
 
 /* What can sit around the rim of a shape. Heights and widths are in feet. */
 const EDGES = {
@@ -964,6 +1039,23 @@ class Dim extends F.Polyline {
 
     const m = dimLabelPoint(this, true);
     const fs = (this.ldFontFt || 1.4) * PPF;
+    const home = { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 };
+    const away = Math.hypot(m.x - home.x, m.y - home.y);
+    if (away > fs * .95) {                       // leader back to what it measures
+      ctx.save();
+      ctx.globalAlpha = .9;
+      ctx.strokeStyle = col; ctx.lineWidth = Math.max(.6, lw * .85);
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(home.x, home.y); ctx.stroke();
+      const hl = fs * .40;
+      ctx.translate(home.x, home.y);
+      ctx.rotate(Math.atan2(home.y - m.y, home.x - m.x));
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(-hl, -hl * .44); ctx.lineTo(-hl, hl * .44);
+      ctx.closePath();
+      ctx.fillStyle = col; ctx.fill();
+      ctx.restore();
+    }
     ctx.save();
     ctx.translate(m.x, m.y);
     ctx.rotate(-(this.angle || 0) * Math.PI / 180);
@@ -1043,6 +1135,8 @@ function addDimensions(o, keepOffsets) {
     if (keepOffsets) old[d.ldDimIdx] = { txt: d.ldTxt, text: d.ldText, font: d.ldFontFt, col: d.ldStrokeColor };
     canvas.remove(d);
   });
+  const skip = keepOffsets ? (o.ldDimSkip || []) : [];
+  if (!keepOffsets) o.ldDimSkip = [];
   const wp = worldPoints(o), n = wp.length;
   const closed = !isOpenShape(o);
   const segs = closed ? n : n - 1;
@@ -1050,6 +1144,7 @@ function addDimensions(o, keepOffsets) {
   const off = Math.max(gridU() * .55, 16);
   let made = 0;
   for (let i = 0; i < segs; i++) {
+    if (skip.indexOf(i) >= 0) continue;
     const A = wp[i], B = wp[(i + 1) % n];
     const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy);
     if (L < 8) continue;
@@ -1220,7 +1315,31 @@ function drawGrid() {
   gctx.strokeStyle = '#4A5844'; gctx.lineWidth = 1.5;
   gctx.strokeRect(tx - .5, ty - .5, pw + 1, ph + 1);
   drawScaleBar(W, H, z);
+  drawEdgeNames(W, H, tx, ty, pw, ph);
   drawCompass(W, H);
+}
+
+/* Naming the four edges is far easier to read than a bearing in degrees. */
+function drawEdgeNames(W, H, tx, ty, pw, ph) {
+  const nd = P.northDeg || 0;
+  const sides = [
+    { t: compassName(nd),       x: tx + pw / 2,  y: ty - 13 },
+    { t: compassName(nd + 90),  x: tx + pw + 22, y: ty + ph / 2 },
+    { t: compassName(nd + 180), x: tx + pw / 2,  y: ty + ph + 13 },
+    { t: compassName(nd + 270), x: tx - 22,      y: ty + ph / 2 }
+  ];
+  gctx.save();
+  gctx.font = '600 10px "IBM Plex Mono",monospace';
+  gctx.textAlign = 'center'; gctx.textBaseline = 'middle';
+  sides.forEach(sd => {
+    const x = clamp(sd.x, 26, W - 26), y = clamp(sd.y, 12, H - 12);
+    const w = gctx.measureText(sd.t).width + 12;
+    gctx.fillStyle = 'rgba(14,21,28,.80)';
+    gctx.fillRect(x - w / 2, y - 9, w, 18);
+    gctx.fillStyle = '#C6D2DD';
+    gctx.fillText(sd.t, x, y + .5);
+  });
+  gctx.restore();
 }
 
 function drawCompass(W, H) {
@@ -1413,6 +1532,58 @@ function newMarker(cx, cy, symbol, extra) {
   }, extra || {}));
   tag(o, 'marker'); return o;
 }
+function newGate(cx, cy, widthFt, angleDeg, forId) {
+  const o = new Gate({
+    left: cx, top: cy, originX: 'center', originY: 'center',
+    radius: (widthFt || 4) * PPF / 2, angle: angleDeg || 0,
+    fill: '', stroke: '', objectCaching: false,
+    ldStrokeColor: '#C2691E', ldGateFor: forId || null, ldName: 'Gate'
+  });
+  tag(o, 'gate'); return o;
+}
+/* Drop a gate onto the nearest walled or fenced outline. */
+function placeGate(sx, sy) {
+  let best = null;
+  objects().forEach(o => {
+    if (!o.points || isOpenShape(o) || !o.ldEdge || o.ldEdge === 'none') return;
+    const wp = worldPoints(o);
+    for (let i = 0; i < wp.length; i++) {
+      const a = wp[i], b = wp[(i + 1) % wp.length];
+      const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
+      const u = clamp(((sx - a.x) * dx + (sy - a.y) * dy) / L2, 0, 1);
+      const px = a.x + dx * u, py = a.y + dy * u;
+      const d = Math.hypot(px - sx, py - sy);
+      if (!best || d < best.d) best = { d, x: px, y: py, ang: Math.atan2(dy, dx) * 180 / Math.PI, o };
+    }
+  });
+  if (!best || best.d > 6 * PPF) { toast('Click on a wall or fence to cut a gate into it.'); return; }
+  const g = newGate(best.x, best.y, 4, best.ang, best.o.ldId);
+  canvas.add(g);
+  best.o.dirty = true;
+  canvas.setActiveObject(g);
+  canvas.requestRenderAll();
+  pushHistory();
+}
+/* After a gate is dragged, pull it back onto its outline and re-align it. */
+function snapGate(g) {
+  const o = byId(g.ldGateFor);
+  if (!o || !o.points) return;
+  const c = g.getCenterPoint(), wp = worldPoints(o);
+  let best = null;
+  for (let i = 0; i < wp.length; i++) {
+    const a = wp[i], b = wp[(i + 1) % wp.length];
+    const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
+    const u = clamp(((c.x - a.x) * dx + (c.y - a.y) * dy) / L2, 0, 1);
+    const px = a.x + dx * u, py = a.y + dy * u;
+    const d = Math.hypot(px - c.x, py - c.y);
+    if (!best || d < best.d) best = { d, x: px, y: py, ang: Math.atan2(dy, dx) * 180 / Math.PI };
+  }
+  if (!best) return;
+  g.set({ left: best.x, top: best.y, angle: best.ang });
+  g.setCoords();
+  o.dirty = true;
+}
+
 function newLabel(x, y, text) {
   const d = D.label;
   const o = new F.IText(text || 'Label', {
@@ -1558,6 +1729,7 @@ function setTool(t) {
     building: `Drag out the footprint. It'll stand ${D.building.ht} ft tall in 3D.`,
     treeTall: 'Click to plant a tall, narrow tree.',
     treeShrub: 'Click to plant a shrub.',
+    gate: 'Click a wall or fence where the gate goes.',
     measure: 'Drag between two points. It leaves a dimension you can move or delete.',
     line: 'Click each corner. <b>Enter</b> to finish, <b>Esc</b> to cancel.',
     arrow: 'Click the start, then the tip. <b>Enter</b> to finish.',
@@ -1647,6 +1819,9 @@ canvas.on('mouse:down', opt => {
     updateDraftGhost({ x, y });
   } else if (t === 'library' && State.stamp) {
     placeStamp(State.stamp, x, y);
+  } else if (t === 'gate') {
+    placeGate(sp.x, sp.y);
+    setTool('select');
   } else if (TREETOOLS.includes(t)) {
     const o = newTree(x, y, D[t].diaFt, null, t);
     canvas.add(o); canvas.setActiveObject(o); setTool('select'); pushHistory();
@@ -1809,7 +1984,7 @@ const num = (v, d) => (Math.round(v * Math.pow(10, d || 1)) / Math.pow(10, d || 
 
 /* ── 9. inspector ────────────────────────────────────────────────────── */
 const TEXKEYS = Object.keys(TEX);
-const KINDNAME = { area: 'Area', building: 'Building', path: 'Pathway', line: 'Line', tree: 'Tree', label: 'Label',
+const KINDNAME = { area: 'Area', building: 'Building', gate: 'Gate', path: 'Pathway', line: 'Line', tree: 'Tree', label: 'Label',
                    boundary: 'Boundary', head: 'Sprinkler', marker: 'Fitting', trace: 'Traced image' };
 const TOOLNAME = { rect: 'rectangle', ellipse: 'ellipse', tri: 'triangle', poly: 'area',
                    building: 'building', path: 'pathway', line: 'line', arrow: 'arrow',
@@ -1945,8 +2120,8 @@ function renderInspector() {
       <h3>Which way it faces</h3>
       <div class="row"><label>Up the screen is</label><input class="fld" id="pNorth" type="number" step="5" value="${Math.round(P.northDeg || 0)}"><span style="color:var(--dimmer);font-size:11px">&deg;</span></div>
       <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">
-        Compass bearing of the top of the plan. 0 means up is north, 90 means up is east.
-        This is what the 3D sun uses, so get it right and the shadows are real.</div>
+        Easiest way: open the 3D view and <b>drag the sun</b> to the side it actually rises or sets over.
+        The edges name themselves from that. The buttons and the bearing below do the same job by hand.</div>
       <div class="grid2" style="margin-top:7px">
         <button class="btn ${(P.northDeg||0)%360===0?'on':''}" data-act="north0">Up = N</button>
         <button class="btn ${(P.northDeg||0)%360===90?'on':''}" data-act="north90">Up = E</button>
@@ -2016,6 +2191,29 @@ function renderInspector() {
       </div>` + plotSect;
     $('#stSelWrap').style.display = '';
     $('#stSel').textContent = 'traced image';
+    wireAll(a); return;
+  }
+
+  if (k === 'gate') {
+    const par = byId(a.ldGateFor);
+    insp.innerHTML = `<div class="sect">
+        <div class="row" style="margin-bottom:9px"><span class="chip ${a.ldLock ? 'locked' : ''}">${a.ldLock ? 'Locked' : 'Gate'}</span>
+          <span style="flex:1"></span>
+          <button class="btn" data-act="lock" style="flex:none;padding:3px 10px">${a.ldLock ? 'Unlock' : 'Lock'}</button></div>
+        <div class="readout"><span>Cut into</span><b>${esc(par ? (par.ldName || 'a shape') : 'nothing')}</b></div>
+        <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block;margin-top:7px">
+          Drag it anywhere along the wall and it snaps back onto the line. The wall opens up around it in 3D.</div>
+      </div>
+      <div class="sect"><h3>Opening</h3>
+        <div class="row"><label>Width</label><input class="fld" id="oGW" type="number" min="1" step="0.5" value="${num(a.radius * 2 * Math.abs(a.scaleX) / PPF)}">${ftLbl}</div>
+        <div class="row"><label>Colour</label><input type="color" id="oGC" value="${colorOf(a.ldStrokeColor, '#C2691E')}"></div>
+        <div class="row"><label>Angle</label><input class="fld" id="oRot" type="number" step="5" value="${Math.round(a.angle)}"><span style="color:var(--dimmer);font-size:11px">&deg;</span></div>
+      </div>
+      <div class="sect"><h3>Actions</h3>
+        <div class="grid2"><button class="btn" data-act="dup">Duplicate</button><button class="btn warn" data-act="del">Delete</button></div>
+      </div>` + plotSect;
+    $('#stSelWrap').style.display = '';
+    $('#stSel').textContent = 'gate';
     wireAll(a); return;
   }
 
@@ -2104,7 +2302,9 @@ function renderInspector() {
         <div class="row" style="font-size:12px;color:var(--dimmer);line-height:1.45;display:block">
           ${e === 'kerb' ? 'A low edging band — 6 in high and 4 in wide is typical for a flower bed.'
             : e === 'wall' ? 'A solid wall following the outline. Good around a pool.'
-            : 'Vertical steel bars with a rail top and bottom, drawn see-through in 3D.'}</div>` : ''}
+            : 'Vertical steel bars with a rail top and bottom, drawn see-through in 3D.'}</div>
+        ${e !== 'kerb' ? `<div class="row"><button class="btn" data-act="gate">Cut a gate into it</button></div>` : ''}
+        ${gatesOn(a).length ? `<div class="readout"><span>Gates</span><b>${gatesOn(a).length}</b></div>` : ''}` : ''}
       </div>`;
     }
 
@@ -2151,6 +2351,7 @@ function renderInspector() {
     const hasDims = dimsFor(a.ldId).length;
     h += `<div class="row"><button class="btn ${hasDims ? 'on' : ''}" data-act="dims">${hasDims ? 'Redraw side lengths' : 'Show length of each side'}</button></div>`;
     if (hasDims) h += `<div class="row"><button class="btn warn" data-act="undims">Remove side lengths</button></div>`;
+    if ((a.ldDimSkip || []).length) h += `<div class="row"><button class="btn" data-act="alldims">Bring back the ${a.ldDimSkip.length} removed</button></div>`;
   }
   h += `<div class="row"><button class="btn" data-act="same">Select every ${(KINDNAME[k] || 'shape').toLowerCase()}</button></div>
     <div class="grid2" style="margin-bottom:7px">
@@ -2177,7 +2378,7 @@ function wirePlot() {
   on('#pW', 'change', e => { P.widthFt = clamp(+e.target.value || 10, 4, 4000); redraw(); saveSoon(); });
   on('#pH', 'change', e => { P.heightFt = clamp(+e.target.value || 10, 4, 4000); redraw(); saveSoon(); });
   on('#pG', 'change', e => { P.gridFt = clamp(+e.target.value || 3, .25, 50); redraw(); saveSoon(); });
-  on('#pNorth', 'change', e => { P.northDeg = ((+e.target.value || 0) % 360 + 360) % 360; redraw(); renderInspector(); saveSoon(); if (V3D.open) placeSun(); });
+  on('#pNorth', 'change', e => { P.northDeg = ((+e.target.value || 0) % 360 + 360) % 360; redraw(); renderInspector(); saveSoon(); if (V3D.open) { placeSun(); refreshEdgeLabels(); } });
   on('#pLat', 'change', e => { P.lat = clamp(+e.target.value || 0, -85, 85); saveSoon(); if (V3D.open) placeSun(); });
   on('#pLon', 'change', e => { P.lon = clamp(+e.target.value || 0, -180, 180); saveSoon(); if (V3D.open) placeSun(); });
   on('#pDate', 'change', e => { P.dateISO = e.target.value || P.dateISO; saveSoon(); if (V3D.open) placeSun(); });
@@ -2204,7 +2405,7 @@ function wireActions(a) {
     if (act === 'dArrow') { D[State.tool].arrow = !D[State.tool].arrow; renderInspector(); return; }
     if (act === 'dFree') { D.path.freehand = true; renderInspector(); setTool('path'); return; }
     if (act === 'dClick') { D.path.freehand = false; renderInspector(); setTool('path'); return; }
-    if (act.startsWith('north')) { P.northDeg = +act.slice(5); redraw(); renderInspector(); saveSoon(); if (V3D.open) placeSun(); return; }
+    if (act.startsWith('north')) { P.northDeg = +act.slice(5); redraw(); renderInspector(); saveSoon(); if (V3D.open) { placeSun(); refreshEdgeLabels(); } return; }
     if (act === 'pick') { pickPreset(b.dataset.g, +b.dataset.i); return; }
     if (act === 'clearStamp') { State.stamp = null; canvas.skipTargetFind = false; setTool('library'); return; }
 
@@ -2233,6 +2434,8 @@ function wireActions(a) {
         pushHistory(); renderInspector(); break;
       }
       case 'undims': removeDimensions(a); pushHistory(); renderInspector(); break;
+      case 'alldims': a.ldDimSkip = []; addDimensions(a, true); pushHistory(); renderInspector(); break;
+      case 'gate': setTool('gate'); toast('Click the wall where the gate goes.'); break;
       case 'dimCentre': a.ldTxt = { x: 0, y: 0 }; done(false); break;
       case 'calib': startCalibration(a); break;
       case 'ftex':
@@ -2353,6 +2556,9 @@ function wireFields(a) {
   });
   on('#oEdgeH', 'change', e => { a.ldEdgeHtFt = clamp(+e.target.value || .5, .05, 60); done(false); });
   on('#oEdgeW', 'change', e => { a.ldEdgeWFt = clamp(+e.target.value || .33, .05, 20); done(false); });
+  on('#oGW', 'change', e => { a.set({ radius: clamp(+e.target.value || 4, .5, 200) * PPF / 2, scaleX: 1, scaleY: 1 }); const par = byId(a.ldGateFor); if (par) par.dirty = true; done(true); });
+  on('#oGC', 'input', e => { a.ldStrokeColor = e.target.value; canvas.requestRenderAll(); });
+  on('#oGC', 'change', () => done(false));
   on('#oEdgeC', 'input', e => { a.ldEdgeColor = e.target.value; canvas.requestRenderAll(); });
   on('#oEdgeC', 'change', () => done(false));
   on('#oDTxt', 'change', e => { a.ldText = e.target.value.trim() || null; done(false); });
@@ -2409,7 +2615,16 @@ function deleteSelection() {
   if (!many.length) return;
   const ids = many.map(o => o.ldId);
   const all = many.concat(objects().filter(o =>
-    (o.ldLabelFor && ids.includes(o.ldLabelFor)) || (o.ldDimFor && ids.includes(o.ldDimFor))));
+    (o.ldLabelFor && ids.includes(o.ldLabelFor)) || (o.ldDimFor && ids.includes(o.ldDimFor)) ||
+    (o.ldGateFor && ids.includes(o.ldGateFor))));
+  /* Remember which side dimensions were deleted so a refresh doesn't bring them back. */
+  all.forEach(d => {
+    if (d.ldKind !== 'dim' || d.ldDimFor == null || d.ldDimIdx == null) return;
+    const par = byId(d.ldDimFor);
+    if (!par) return;
+    par.ldDimSkip = (par.ldDimSkip || []).concat([d.ldDimIdx]);
+  });
+  all.forEach(g => { if (g.ldKind === 'gate') { const par = byId(g.ldGateFor); if (par) par.dirty = true; } });
   canvas.discardActiveObject();
   all.forEach(o => canvas.remove(o));
   canvas.requestRenderAll(); pushHistory(); renderInspector();
@@ -2449,7 +2664,11 @@ canvas.on('selection:cleared', e => {
 });
 canvas.on('object:modified', e => {
   const o = e.target;
-  if (o && o.ldId && o.points && dimsFor(o.ldId).length) addDimensions(o, true);
+  if (o && o.ldKind === 'gate') snapGate(o);
+  if (o && o.ldId && o.points) {
+    if (dimsFor(o.ldId).length) addDimensions(o, true);
+    gatesOn(o).forEach(snapGate);
+  }
   pushHistory(); renderInspector();
 });
 canvas.on('object:moving', e => {
@@ -2462,7 +2681,7 @@ canvas.on('object:moving', e => {
   const dy = o.top - (o._pt == null ? o.top : o._pt);
   if (o.ldId && (dx || dy)) {
     objects().forEach(L => {
-      if ((L.ldLabelFor === o.ldId || L.ldDimFor === o.ldId) && !L.ldLock) {
+      if ((L.ldLabelFor === o.ldId || L.ldDimFor === o.ldId || L.ldGateFor === o.ldId) && !L.ldLock) {
         L.set({ left: L.left + dx, top: L.top + dy }); L.setCoords();
       }
     });
@@ -3016,23 +3235,6 @@ function polyArea2(p) {
   for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]; a += p[i].x * q.y - q.x * p[i].y; }
   return a / 2;
 }
-/* Push every corner out along its angle bisector. Good enough for the shapes
-   people actually draw; very spiky corners get clamped rather than shooting off. */
-function offsetPoly(pts, d) {
-  const nn = pts.length, out = [];
-  for (let i = 0; i < nn; i++) {
-    const prev = pts[(i - 1 + nn) % nn], cur = pts[i], next = pts[(i + 1) % nn];
-    const e1 = { x: cur.x - prev.x, y: cur.y - prev.y }, e2 = { x: next.x - cur.x, y: next.y - cur.y };
-    const l1 = Math.hypot(e1.x, e1.y) || 1, l2 = Math.hypot(e2.x, e2.y) || 1;
-    const n1 = { x: e1.y / l1, y: -e1.x / l1 }, n2 = { x: e2.y / l2, y: -e2.x / l2 };
-    let bx = n1.x + n2.x, by = n1.y + n2.y;
-    const bl = Math.hypot(bx, by);
-    if (bl < 1e-6) { bx = n1.x; by = n1.y; } else { bx /= bl; by /= bl; }
-    const k = Math.max(.3, bx * n1.x + by * n1.y);
-    out.push({ x: cur.x + bx * d / k, y: cur.y + by * d / k });
-  }
-  return out;
-}
 function shapeFrom(pts) {
   const sh = new THREE.Shape();
   pts.forEach((q, i) => i ? sh.lineTo(q.x, q.y) : sh.moveTo(q.x, q.y));
@@ -3062,59 +3264,93 @@ function buildEdge(o, scene) {
   if (!def) return 0;
   const h = o.ldEdgeHtFt || def.h, w = o.ldEdgeWFt || def.w;
   const col = o.ldEdgeColor || def.col || '#A8A296';
-  const base = 0;
-  const wp = worldPoints(o).map(q => toScene(q.x, q.y));
+  const wpPlan = worldPoints(o);
+  const wp = wpPlan.map(q => toScene(q.x, q.y));
+  const gates = gatesOn(o).map(g => {
+    const c = g.getCenterPoint(), q = toScene(c.x, c.y);
+    return { x: q.x, y: q.z, r: g.radius * Math.abs(g.scaleX) / PPF };
+  });
+  const colour = new THREE.Color(col);
+  const solid = new THREE.MeshLambertMaterial({ color: colour });
 
+  let fenceMat = null, pos = [], uv = [], idx = [], run = 0, vi = 0;
   if (e === 'fence') {
     const t = new THREE.CanvasTexture(fenceTexture(col));
     t.wrapS = THREE.RepeatWrapping;
     t.wrapT = THREE.ClampToEdgeWrapping;
-    const mat = new THREE.MeshLambertMaterial({
+    fenceMat = new THREE.MeshLambertMaterial({
       map: t, transparent: true, alphaTest: .45, side: THREE.DoubleSide });
-    const pos = [], uv = [], idx = [];
-    let run = 0, vi = 0;
-    for (let i = 0; i < wp.length; i++) {
-      const a = wp[i], b = wp[(i + 1) % wp.length];
-      const L = Math.hypot(b.x - a.x, b.z - a.z);
-      if (L < .05) continue;
-      pos.push(a.x, base, a.z, b.x, base, b.z, b.x, base + h, b.z, a.x, base + h, a.z);
-      uv.push(run, 0, run + L, 0, run + L, 1, run, 1);
-      idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
-      vi += 4; run += L;
-    }
+  }
+
+  const openCorner = q => gates.some(g => Math.hypot(g.x - q.x, g.y - q.z) < g.r);
+
+  for (let i = 0; i < wp.length; i++) {
+    const A = wp[i], B = wp[(i + 1) % wp.length];
+    const a2 = { x: A.x, y: A.z }, b2 = { x: B.x, y: B.z };
+    piecesFor(a2, b2, gates).forEach(([t0, t1]) => {
+      const p0 = { x: A.x + (B.x - A.x) * t0, z: A.z + (B.z - A.z) * t0 };
+      const p1 = { x: A.x + (B.x - A.x) * t1, z: A.z + (B.z - A.z) * t1 };
+      const dx = p1.x - p0.x, dz = p1.z - p0.z, L = Math.hypot(dx, dz);
+      if (L < .05) return;
+      if (e === 'fence') {
+        pos.push(p0.x, 0, p0.z, p1.x, 0, p1.z, p1.x, h, p1.z, p0.x, h, p0.z);
+        uv.push(run, 0, run + L, 0, run + L, 1, run, 1);
+        idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+        vi += 4; run += L;
+      } else {
+        const box = new THREE.Mesh(new THREE.BoxGeometry(L, h, w), solid);
+        box.position.set((p0.x + p1.x) / 2, h / 2, (p0.z + p1.z) / 2);
+        box.rotation.y = Math.atan2(-dz, dx);
+        box.castShadow = true; box.receiveShadow = true;
+        scene.add(box);
+      }
+    });
+  }
+
+  if (e === 'fence' && idx.length) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setIndex(idx); g.computeVertexNormals();
-    const mesh = new THREE.Mesh(g, mat);
+    const mesh = new THREE.Mesh(g, fenceMat);
     mesh.castShadow = true;
     scene.add(mesh);
-    const postMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(col) });
-    const postG = new THREE.BoxGeometry(w * 2.4, h * 1.06, w * 2.4);
-    wp.forEach(q => {
-      const post = new THREE.Mesh(postG, postMat);
-      post.position.set(q.x, base + h * .53, q.z);
+  }
+
+  /* A round post at every corner hides the mitre, whatever the angle. */
+  const postR = e === 'fence' ? w * 1.2 : w / 2;
+  const postG = new THREE.CylinderGeometry(postR, postR, h * (e === 'fence' ? 1.06 : 1), 10);
+  wp.forEach(q => {
+    if (openCorner(q)) return;
+    const post = new THREE.Mesh(postG, solid);
+    post.position.set(q.x, h / 2, q.z);
+    post.castShadow = true; post.receiveShadow = true;
+    scene.add(post);
+  });
+
+  /* Gate posts, and a leaf swung open so you can see it's a way through. */
+  const leafMat = new THREE.MeshLambertMaterial({ color: new THREE.Color('#B4712C') });
+  gatesOn(o).forEach(g => {
+    const c = g.getCenterPoint(), q = toScene(c.x, c.y);
+    const half = g.radius * Math.abs(g.scaleX) / PPF;
+    const ang = -(g.angle || 0) * Math.PI / 180;
+    const ux = Math.cos(ang), uz = -Math.sin(ang);
+    [-1, 1].forEach(sgn => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(postR * 1.15, postR * 1.15, h * 1.1, 10), solid);
+      post.position.set(q.x + ux * half * sgn, h * .55, q.z + uz * half * sgn);
       post.castShadow = true;
       scene.add(post);
     });
-    return 1;
-  }
-
-  const flat = wp.map(q => ({ x: q.x, y: -q.z }));
-  const A = offsetPoly(flat, w / 2), B = offsetPoly(flat, -w / 2);
-  const outer = Math.abs(polyArea2(A)) > Math.abs(polyArea2(B)) ? A : B;
-  const inner = outer === A ? B : A;
-  const sh = shapeFrom(outer);
-  const hole = new THREE.Path();
-  inner.forEach((q, i) => i ? hole.lineTo(q.x, q.y) : hole.moveTo(q.x, q.y));
-  hole.closePath();
-  sh.holes.push(hole);
-  const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false });
-  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: new THREE.Color(col) }));
-  m.rotation.x = -Math.PI / 2;
-  m.position.y = base;
-  m.castShadow = true; m.receiveShadow = true;
-  scene.add(m);
+    const leafH = Math.min(h * .92, Math.max(3, h * .8));
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(half * 1.9, leafH, w * .5), leafMat);
+    const swing = ang + Math.PI / 3;
+    leaf.position.set(q.x - ux * half + Math.cos(swing) * half * .95,
+                      leafH / 2,
+                      q.z - uz * half - Math.sin(swing) * half * .95);
+    leaf.rotation.y = -swing;
+    leaf.castShadow = true;
+    scene.add(leaf);
+  });
   return 1;
 }
 
@@ -3185,6 +3421,32 @@ function buildTree(o) {
   return g;
 }
 
+function makeEdgeLabel(span) {
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 128;
+  const tex = new THREE.CanvasTexture(cv);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  sp.scale.set(span * .17, span * .085, 1);
+  sp.renderOrder = 998;
+  sp.userData = { cv, tex };
+  return sp;
+}
+function paintEdgeLabel(sp, txt) {
+  const c = sp.userData.cv.getContext('2d');
+  c.clearRect(0, 0, 256, 128);
+  c.fillStyle = 'rgba(14,21,28,.74)';
+  c.fillRect(30, 30, 196, 68);
+  c.font = 'bold 52px "IBM Plex Mono", monospace';
+  c.fillStyle = '#EAF1F7'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(txt, 128, 66);
+  sp.userData.tex.needsUpdate = true;
+}
+function refreshEdgeLabels() {
+  if (!TD || !TD.edgeLabels) return;
+  const nd = P.northDeg || 0;
+  [0, 90, 180, 270].forEach((d, i) => paintEdgeLabel(TD.edgeLabels[i], compassName(nd + d)));
+}
+
 async function build3D() {
   const host = $('#v3dCanvas');
   if (!TD) {
@@ -3195,6 +3457,7 @@ async function build3D() {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(48, 1, .3, 40000);
     TD = { renderer, scene, camera, shadows: true, minutes: 11 * 60,
+           ray: new THREE.Raycaster(),
            orbit: { th: -50, ph: 40, dist: 150, tx: 0, tz: 0 }, anim: null };
     $('#v3dClock').value = TD.minutes;
     bind3D(host);
@@ -3217,6 +3480,17 @@ async function build3D() {
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
+
+  const span0 = Math.max(Wf, Hf), pad = span0 * .075, ly = span0 * .05;
+  TD.edgeLabels = [
+    [0, -Hf / 2 - pad], [Wf / 2 + pad, 0], [0, Hf / 2 + pad], [-Wf / 2 - pad, 0]
+  ].map(([x, z]) => {
+    const sp = makeEdgeLabel(span0);
+    sp.position.set(x, ly, z);
+    scene.add(sp);
+    return sp;
+  });
+  refreshEdgeLabels();
 
   const skirt = new THREE.Mesh(
     new THREE.PlaneGeometry(Math.max(Wf, Hf) * 6, Math.max(Wf, Hf) * 6),
@@ -3280,6 +3554,23 @@ async function build3D() {
     : 'nothing raised yet — give a shape a height or a rim';
 }
 
+/* Keep the sun on a dome that grows with the camera, and keep it the same
+   apparent size, so it never wanders off screen when it climbs overhead. */
+function placeSunBall() {
+  if (!TD || !TD.sunBall || !TD.sunDir || !P) return;
+  const span = Math.max(P.widthFt, P.heightFt);
+  const r = clamp(TD.orbit.dist * .42, span * .32, span * 4);
+  const v = TD.sunDir;
+  TD.sunBall.position.set(v.x * r, v.y * r, v.z * r);
+  TD.sunBall.scale.setScalar(clamp(TD.orbit.dist / Math.max(span, 1), .35, 5));
+  const at = TD.sunRay.geometry.attributes.position;
+  at.setXYZ(0, TD.sunBall.position.x, TD.sunBall.position.y, TD.sunBall.position.z);
+  at.setXYZ(1, 0, 0, 0);
+  at.needsUpdate = true;
+  TD.sunRay.geometry.computeBoundingSphere();
+  TD.sunRay.computeLineDistances();
+}
+
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                  'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 const compassName = az => COMPASS[Math.round(((az % 360) + 360) % 360 / 22.5) % 16];
@@ -3289,8 +3580,10 @@ function placeSun() {
   const mins = TD.minutes == null ? 720 : TD.minutes;
   const sp = sunPosition(P.lat, P.lon, P.dateISO, mins);
   const sky = skyFor(sp.alt);
-  const span = Math.max(P.widthFt, P.heightFt), dist = span * 1.9;
+  const span = Math.max(P.widthFt, P.heightFt), dist = span * 2.2;
   const v = bearingToVec(sp.az, sp.alt);
+  TD.sunDir = v;
+  TD.sunAlt = sp.alt;
 
   TD.sunLight.position.set(v.x * dist, v.y * dist, v.z * dist);
   TD.sunLight.target.position.set(0, 0, 0);
@@ -3303,18 +3596,11 @@ function placeSun() {
   if (TD.scene.fog) TD.scene.fog.color.copy(sky.bg);
 
   if (TD.sunBall) {
-    const up = sp.alt > -6;
-    TD.sunBall.visible = up;
-    TD.sunBall.position.copy(TD.sunLight.position);
+    TD.sunBall.visible = sp.alt > -6;
     TD.sunBall.material.color.copy(sky.col);
     TD.sunGlow.material.color.copy(sky.col);
-    const at = TD.sunRay.geometry.attributes.position;
-    at.setXYZ(0, TD.sunLight.position.x, TD.sunLight.position.y, TD.sunLight.position.z);
-    at.setXYZ(1, 0, 0, 0);
-    at.needsUpdate = true;
-    TD.sunRay.geometry.computeBoundingSphere();
-    TD.sunRay.computeLineDistances();
     TD.sunRay.visible = sp.alt > 0;
+    placeSunBall();
   }
   const tEl = $('#v3dTime'), iEl = $('#v3dSunInfo');
   if (tEl) tEl.textContent = hhmm(mins);
@@ -3343,8 +3629,71 @@ function loop3D() {
   const r = Math.cos(ph) * o.dist;
   TD.camera.position.set(o.tx + Math.cos(th) * r, Math.sin(ph) * o.dist, o.tz + Math.sin(th) * r);
   TD.camera.lookAt(o.tx, Math.max(0, o.dist * .04), o.tz);
+  placeSunBall();
   TD.renderer.render(TD.scene, TD.camera);
 }
+/* Render straight to a data URL. No preserveDrawingBuffer needed because we
+   draw and read back in the same tick. */
+function snap3D(scale) {
+  const el = $('#v3d'), w = el.clientWidth, h = el.clientHeight;
+  TD.renderer.setSize(Math.round(w * scale), Math.round(h * scale), false);
+  TD.camera.aspect = w / Math.max(1, h);
+  TD.camera.updateProjectionMatrix();
+  TD.renderer.render(TD.scene, TD.camera);
+  const url = TD.renderer.domElement.toDataURL('image/png');
+  TD.renderer.setSize(w, h, false);
+  return url;
+}
+function save3DView() {
+  if (!TD) return;
+  const url = snap3D(2);
+  download(`${P.name.replace(/\s+/g, '-').toLowerCase()}-3d.png`, null, url);
+  toast('View saved.');
+}
+const SHEET = [['bird', "Bird's eye"], ['top', 'Straight down'], ['n', 'From north'],
+               ['e', 'From east'], ['s', 'From south'], ['w', 'From west']];
+async function save3DSheet() {
+  if (!TD) return;
+  stopDay();
+  note3D('Rendering six views…');
+  const before = Object.assign({}, TD.orbit);
+  const shots = [];
+  for (const [v, label] of SHEET) {
+    setView(v);
+    loop3D.once = true;
+    const o = TD.orbit, ph = clamp(o.ph, 1.5, 89) * Math.PI / 180, th = o.th * Math.PI / 180;
+    const r = Math.cos(ph) * o.dist;
+    TD.camera.position.set(o.tx + Math.cos(th) * r, Math.sin(ph) * o.dist, o.tz + Math.sin(th) * r);
+    TD.camera.lookAt(o.tx, Math.max(0, o.dist * .04), o.tz);
+    placeSunBall();
+    shots.push({ label, url: snap3D(1.4) });
+  }
+  Object.assign(TD.orbit, before);
+  const imgs = await Promise.all(shots.map(sh => new Promise((res, rej) => {
+    const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = sh.url;
+  })));
+  const cw = imgs[0].width, chh = imgs[0].height, gap = 14, lab = 30;
+  const out = document.createElement('canvas');
+  out.width = cw * 3 + gap * 4;
+  out.height = (chh + lab) * 2 + gap * 3 + 34;
+  const c = out.getContext('2d');
+  c.fillStyle = '#0E151C'; c.fillRect(0, 0, out.width, out.height);
+  imgs.forEach((im, i) => {
+    const x = gap + (i % 3) * (cw + gap), y = gap + Math.floor(i / 3) * (chh + lab + gap);
+    c.drawImage(im, x, y);
+    c.fillStyle = '#8798A8';
+    c.font = '500 17px "IBM Plex Mono", monospace';
+    c.fillText(shots[i].label, x + 2, y + chh + 21);
+  });
+  c.fillStyle = '#E7EDF3';
+  c.font = '500 19px "IBM Plex Mono", monospace';
+  c.fillText(`${P.name} — ${P.widthFt} × ${P.heightFt} ft — ${hhmm(TD.minutes == null ? 720 : TD.minutes)}, ${P.dateISO}`,
+             gap, out.height - 12);
+  out.toBlob(b => download(`${P.name.replace(/\s+/g, '-').toLowerCase()}-6-views.png`, null, URL.createObjectURL(b)));
+  note3D('');
+  toast('Six views saved.');
+}
+
 function resize3D() {
   if (!TD) return;
   const el = $('#v3d'), w = el.clientWidth, h = el.clientHeight;
@@ -3352,14 +3701,47 @@ function resize3D() {
   TD.camera.aspect = w / Math.max(1, h);
   TD.camera.updateProjectionMatrix();
 }
+function ndc(host, e) {
+  const r = host.getBoundingClientRect();
+  return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1,
+                           -((e.clientY - r.top) / r.height) * 2 + 1);
+}
+/* Dragging the sun is the inverse problem: you know where the sun should be,
+   so the site's orientation is whatever makes the maths agree. */
+function dragSunTo(host, e) {
+  if (!TD.sunBall || !TD.sunBall.visible) return;
+  TD.ray.setFromCamera(ndc(host, e), TD.camera);
+  const y = TD.sunBall.position.y;
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -y);
+  const hit = new THREE.Vector3();
+  if (!TD.ray.ray.intersectPlane(plane, hit)) return;
+  if (Math.hypot(hit.x, hit.z) < 1) return;
+  const rel = deg(Math.atan2(hit.x, -hit.z));
+  const sp = sunPosition(P.lat, P.lon, P.dateISO, TD.minutes == null ? 720 : TD.minutes);
+  P.northDeg = (Math.round(((sp.az - rel) % 360 + 360) % 360 / 5) * 5) % 360;
+  placeSun();
+  refreshEdgeLabels();
+  redraw();
+  saveSoon();
+}
+
 function bind3D(host) {
   let drag = null;
   host.addEventListener('pointerdown', e => {
-    drag = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2 };
     host.setPointerCapture(e.pointerId);
+    if (TD.sunBall && TD.sunBall.visible && !e.shiftKey && e.button !== 2) {
+      TD.ray.setFromCamera(ndc(host, e), TD.camera);
+      if (TD.ray.intersectObject(TD.sunBall, true).length) {
+        drag = { sun: true };
+        note3D('Drop the sun on the side it really sits on.');
+        return;
+      }
+    }
+    drag = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2 };
   });
   host.addEventListener('pointermove', e => {
     if (!drag) return;
+    if (drag.sun) { dragSunTo(host, e); return; }
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     drag.x = e.clientX; drag.y = e.clientY;
     const o = TD.orbit;
@@ -3373,7 +3755,10 @@ function bind3D(host) {
     }
   });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev =>
-    host.addEventListener(ev, () => { drag = null; }));
+    host.addEventListener(ev, () => {
+      if (drag && drag.sun) { note3D(''); toast(`Top of the plan now faces ${compassName(P.northDeg)}.`); }
+      drag = null;
+    }));
   host.addEventListener('contextmenu', e => e.preventDefault());
   host.addEventListener('wheel', e => {
     e.preventDefault();
@@ -3460,6 +3845,8 @@ $('#v3dShadow').addEventListener('click', () => {
   placeSun();
 });
 $('#v3dClose').addEventListener('click', stopDay);
+$('#v3dShot').addEventListener('click', save3DView);
+$('#v3dSheet').addEventListener('click', save3DSheet);
 $('#btnInsp').addEventListener('click', () => $('#insp').classList.toggle('open'));
 $('#btnUndo').addEventListener('click', undo);
 $('#btnRedo').addEventListener('click', redo);
@@ -3505,7 +3892,7 @@ function typing() {
 }
 const TOOLKEY = { v: 'select', h: 'pan', r: 'rect', o: 'ellipse', y: 'tri', p: 'poly',
                   w: 'path', n: 'line', a: 'arrow', t: 'tree', u: 'treeTall', s: 'treeShrub',
-                  c: 'building', x: 'label', m: 'measure', b: 'library', i: 'trace' };
+                  c: 'building', k: 'gate', x: 'label', m: 'measure', b: 'library', i: 'trace' };
 
 window.addEventListener('keydown', e => {
   if (e.code === 'Space' && !typing()) {
